@@ -1,0 +1,60 @@
+# ==============================================================================
+# Supabase Configuration for MindSahaay Platform
+# ==============================================================================
+
+project_id = "mindsahaay"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[local_smtp]
+enabled = true
+port = 54324
+
+[storage]
+enabled = false
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = [
+  "http://localhost:8443",
+  "http://127.0.0.1:5180",
+  "http://localhost:5180",
+  "http://127.0.0.1:5173",
+  "https://mindsahaay.org"
+]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[edge_runtime]
+enabled = true
+port = 54326
+
+[analytics]
+enabled = false
+
+# The edge function is served at /functions/v1/server (VITE_FUNCTIONS_SLUG=server).
+# Its entrypoint is index.tsx, which the CLI does not auto-discover, so declare it.
+# The function also verifies the user JWT itself on every route except /health.
+[functions.server]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/server/index.tsx"
