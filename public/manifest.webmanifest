@@ -1,0 +1,21 @@
+{
+  "name": "MindSahaay",
+  "short_name": "MindSahaay",
+  "description": "A private, educational mental wellbeing companion for students. Not a medical service.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#19443c",
+  "background_color": "#fbf8f3",
+  "lang": "en",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Crisis help", "short_name": "Crisis", "url": "/crisis" }
+  ]
+}
