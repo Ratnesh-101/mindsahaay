@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="<!-- figma:lang -->">
+  <head>
+    <!-- figma:head-start -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><!-- figma:title --></title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#19443c" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <!-- 
+      Content Security Policy is enforced via HTTP response headers in vercel.json for production deployments.
+      An active meta tag CSP is omitted in this HTML file during development to avoid breaking Vite HMR WebSockets
+      (ws://localhost:* / ws://127.0.0.1:*) and Figma Make iframe dev previews.
+      Production CSP reference:
+      <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src https://*.daily.co; img-src 'self' data: blob:; media-src 'self' blob:; base-uri 'self'; form-action 'self';" />
+    -->
+    <!-- figma:head-end -->
+  </head>
+  <body>
+    <!-- figma:body-start -->
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <!-- figma:body-end -->
+  </body>
+</html>
