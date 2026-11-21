@@ -1,0 +1,218 @@
+{
+  "cbt": {
+    "title": "CBT toolkit",
+    "intro": "Simple, evidence-based exercises from cognitive behavioural therapy. These are self-help tools for learning, not treatment or a diagnosis.",
+    "tabsLabel": "CBT tools",
+    "tabThought": "Thought record",
+    "tabActivity": "Activity planner",
+    "tabWorry": "Worry time",
+    "thought": {
+      "title": "Thought record",
+      "intro": "Slow a distressing thought down and look at it from more angles. Records are encrypted in your browser with your vault passphrase.",
+      "situation": "Situation",
+      "situationHint": "Where were you, who was there, what happened?",
+      "automaticThought": "Automatic thought",
+      "automaticThoughtHint": "What went through your mind?",
+      "emotion": "Main feeling",
+      "intensityBefore": "How strong was it (0 to 100)?",
+      "distortions": "Thinking traps that might fit",
+      "evidenceFor": "Evidence for the thought",
+      "evidenceAgainst": "Evidence against the thought",
+      "balancedThought": "Balanced thought",
+      "balancedHint": "A fairer way to say it, using both sides of the evidence.",
+      "intensityAfter": "How strong is the feeling now (0 to 100)?",
+      "save": "Save encrypted record",
+      "saving": "Encrypting and saving...",
+      "saved": "Thought record encrypted and saved.",
+      "required": "Please fill in the situation, the automatic thought and a balanced thought.",
+      "saveError": "We could not save this record. Please try again.",
+      "loadError": "We could not load your thought records.",
+      "pastTitle": "Your thought records ({{count}})",
+      "empty": "No thought records yet.",
+      "delete": "Delete record from {{date}}",
+      "confirmDelete": "Yes, delete permanently",
+      "cancelDelete": "Keep it",
+      "shift": "Feeling moved from {{before}} to {{after}}",
+      "crisisTitle": "It sounds like things are very heavy right now",
+      "crisisBody": "Your record stays encrypted on your side. Please reach out to one of these free, confidential helplines, available 24/7:"
+    },
+    "distortion": {
+      "allOrNothing": "All-or-nothing thinking",
+      "catastrophising": "Catastrophising",
+      "mindReading": "Mind reading",
+      "fortuneTelling": "Fortune telling",
+      "emotionalReasoning": "Emotional reasoning",
+      "shouldStatements": "Should statements",
+      "labelling": "Labelling",
+      "personalisation": "Personalisation",
+      "overgeneralising": "Overgeneralising",
+      "mentalFilter": "Mental filter"
+    },
+    "activity": {
+      "title": "Behavioural activation planner",
+      "intro": "When mood is low, small planned activities can lift it. Plan something, do it, then rate your mood. Stored on this device only.",
+      "name": "Activity",
+      "namePlaceholder": "For example: 15-minute walk after dinner",
+      "when": "Planned for",
+      "category": "Type",
+      "categories": {
+        "pleasure": "Pleasure",
+        "mastery": "Achievement",
+        "social": "Connection"
+      },
+      "moodBefore": "Mood before (0 to 10)",
+      "moodAfter": "Mood after (0 to 10)",
+      "add": "Add to plan",
+      "listTitle": "Your plan",
+      "empty": "Nothing planned yet. Start with something small.",
+      "markDone": "Mark done",
+      "done": "Done",
+      "delete": "Remove {{name}}",
+      "change": "Mood {{before}} to {{after}}",
+      "required": "Please name the activity and pick a time."
+    },
+    "worry": {
+      "title": "Worry-time scheduler",
+      "intro": "Pick a daily 15 to 20 minute slot for worrying. When a worry shows up at other times, park it here and come back to it later. Stored on this device only.",
+      "time": "Daily worry time",
+      "duration": "Length (minutes)",
+      "saveSchedule": "Save schedule",
+      "scheduleSaved": "Worry time saved.",
+      "next": "Next worry time: {{when}}",
+      "notSet": "No worry time set yet.",
+      "parkLabel": "Park a worry for later",
+      "parkPlaceholder": "Write the worry in one line",
+      "park": "Park it",
+      "parkedTitle": "Parked worries ({{count}})",
+      "parkedEmpty": "No parked worries.",
+      "remove": "Let go of: {{text}}",
+      "reviewHint": "At worry time, ask of each one: can I do something about it? If yes, plan one step. If no, practise letting it go."
+    }
+  },
+  "tools": {
+    "breathing": {
+      "eyebrow": "5-MINUTE CALMING RESET",
+      "title": "4-7-8 breathing tool",
+      "close": "Close breathing tool",
+      "inhale": "Inhale",
+      "hold": "Hold",
+      "exhale": "Exhale",
+      "guideInhale": "Breathe in slowly and deeply through your nose...",
+      "guideHold": "Hold your breath gently and relax your shoulders...",
+      "guideExhale": "Exhale completely and steadily through your mouth...",
+      "cycle": "Cycle {{current}} of {{total}}",
+      "seconds": "{{count}} seconds",
+      "pause": "Pause",
+      "resume": "Resume",
+      "finish": "Finish reset",
+    "complete": "Well done. You finished all the cycles.",
+      "tryGrounding": "Try 5-4-3-2-1 sensory grounding instead",
+      "reducedMotion": "Reduced motion is on, so the circle stays still. Follow the words and numbers.",
+      "medical": "If breath-holding makes you dizzy, breathe normally and stop. This is a relaxation exercise, not medical advice."
+    },
+    "grounding": {
+      "eyebrow": "PANIC AND ACUTE ANXIETY DE-ESCALATION",
+      "title": "5-4-3-2-1 grounding method",
+      "close": "Close grounding exercise",
+      "intro": "When panic or racing thoughts take over, anchoring your five senses can bring you back to the present moment.",
+      "done": "Done feeling grounded",
+      "s5": {
+        "title": "Acknowledge 5 things you can SEE around you",
+        "items": [
+          "Laptop or notebook",
+          "A shadow or beam of light",
+          "Your hands or fingernails",
+          "A tree or window outside",
+          "A pen or coffee mug"
+        ]
+      },
+      "s4": {
+        "title": "Acknowledge 4 things you can physically TOUCH",
+        "items": [
+          "Feet flat on the floor",
+          "Texture of your clothing",
+          "Backrest of your chair",
+          "Cool surface of your desk"
+        ]
+      },
+      "s3": {
+        "title": "Acknowledge 3 things you can HEAR right now",
+        "items": [
+          "Hum of a ceiling fan",
+          "Distant street or birds",
+          "Your own gentle breath"
+        ]
+      },
+      "s2": {
+        "title": "Acknowledge 2 things you can SMELL",
+        "items": [
+          "Fresh air or rain",
+          "Coffee or fabric scent"
+        ]
+      },
+      "s1": {
+        "title": "Acknowledge 1 thing you can TASTE",
+        "items": [
+          "A sip of cold water or mint"
+        ]
+      }
+    },
+    "carePlan": {
+      "eyebrow": "SUPPORTIVE NEXT STEPS",
+      "title": "Your care plan ideas",
+      "close": "Close care plan",
+      "disclaimer": "These are general wellbeing ideas for students, not a diagnosis or treatment plan.",
+      "step1Title": "Daily 10-minute reset",
+      "step1": "Practise 4-7-8 breathing or take a mindful 10-minute walk between classes.",
+      "step2Title": "Steady sleep routine",
+      "step2": "Aim for 7 or more hours of sleep. Switch off bright study screens 30 minutes before bed.",
+      "step3Title": "Confidential one-to-one session",
+      "step3": "Book a private, judgement-free session with a campus counsellor.",
+      "connect": "Connect with a counsellor"
+    },
+    "audio": {
+      "eyebrow": "SOUNDS FOR SLEEP AND STUDY",
+      "title": "Audio sanctuary",
+      "close": "Close audio sanctuary",
+      "inactive": "No soundscape playing",
+      "selectPrompt": "Choose a soundscape below",
+      "sleepFade": "Fades out in {{time}}",
+      "tracksLabel": "Soundscapes",
+      "play": "Play",
+      "stop": "Stop",
+      "playTrack": "Play {{title}}",
+      "stopTrack": "Stop {{title}}",
+      "volume": "Volume: {{value}}%",
+      "volumeLabel": "Master soundscape volume",
+      "timerLabel": "Auto-off timer",
+      "continuous": "Continuous",
+      "continuousLabel": "Continuous playback",
+      "minutesLabel": "{{count}} minute timer",
+      "minutes": "{{count}}m",
+      "keepPlaying": "Keep playing in background",
+      "closeButton": "Close",
+      "tracks": {
+        "rain": {
+          "title": "Monsoon rain",
+          "freq": "Soft noise with a low-pass filter",
+          "desc": "Gentle rainfall and distant thunder to soften exam overthinking."
+        },
+        "bowl": {
+          "title": "432 Hz singing bowl",
+          "freq": "432 Hz tone with a slow acoustic beat",
+          "desc": "A warm, steady bowl tone many people find calming."
+        },
+        "solfeggio": {
+          "title": "528 Hz tone",
+          "freq": "528 Hz with a 264 Hz grounding octave",
+          "desc": "A calm, steady tone for winding down. It is a relaxation aid, not a treatment."
+        },
+        "delta": {
+          "title": "Delta sleep beat",
+          "freq": "Slow stereo beat. Use headphones.",
+          "desc": "A slow, low beat to help you drift off at night."
+        }
+      }
+    }
+  }
+}
