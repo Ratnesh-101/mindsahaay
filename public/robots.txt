@@ -1,0 +1,4 @@
+# MindSahaay - Digital Mental Health Platform for Indian University Students
+# Disallow all web indexing and crawlers to protect student privacy and mental health data.
+User-agent: *
+Disallow: /
