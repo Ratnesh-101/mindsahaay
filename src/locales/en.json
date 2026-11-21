@@ -1,0 +1,77 @@
+{
+  "nav": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "assessment": "Assessments",
+    "chat": "MindMate Chat",
+    "journal": "Private Journal",
+    "doctors": "Counsellors",
+    "stories": "Campus Stories",
+    "insights": "Wellbeing Insights",
+    "settings": "Settings",
+    "signOut": "Sign Out",
+    "privacy": "Data Privacy",
+    "emergency": "Emergency SOS"
+  },
+  "crisis": {
+    "title": "Need Immediate Crisis Support?",
+    "subtitle": "You are never alone. Confidential, compassionate, and free support is available 24/7 across India.",
+    "teleManas": "Tele-MANAS",
+    "teleManasNumber": "14416",
+    "teleManasTollFree": "1800-891-4416",
+    "teleManasDesc": "National Tele Mental Health Programme of India (Ministry of Health & Family Welfare, Govt. of India). Free 24/7 support in 20+ Indian languages.",
+    "kiran": "KIRAN Helpline",
+    "kiranNumber": "1800-599-0019",
+    "kiranDesc": "24/7 National mental health helpline operated by DEPwD for crisis counselling and mental health rehabilitation.",
+    "emergency": "National Emergency Services",
+    "emergencyNumber": "112",
+    "emergencyDesc": "All-in-one national emergency helpline for immediate medical, police, or ambulance assistance.",
+    "callNow": "Call Now",
+    "close": "Close",
+    "warningBanner": "If you are experiencing distress, thoughts of self-harm, or feeling overwhelmed, please connect with these verified free helplines right now."
+  },
+  "assessments": {
+    "disclaimer": "MindSahaay assessments are educational screening tools and do not constitute a clinical diagnosis or medical evaluation. If you are experiencing distress, please reach out to campus counselling services or a qualified mental health professional.",
+    "phq4Title": "PHQ-4 Ultra-Brief Screening",
+    "phq4Desc": "A 4-question screener measuring recent feelings of anxiety and low mood over the past 2 weeks.",
+    "phq9Title": "PHQ-9 Depression Screener",
+    "phq9Desc": "Standard 9-item questionnaire to help you track feelings of low mood, energy, and concentration.",
+    "gad7Title": "GAD-7 Generalized Anxiety Screener",
+    "gad7Desc": "Standard 7-item questionnaire measuring patterns of nervousness and worry.",
+    "item9Alert": "CRITICAL ALERT: Your response to Item 9 indicates thoughts of self-harm. MindSahaay has activated the student crisis protocol. Please connect with immediate professional support below.",
+    "options": {
+      "0": "Not at all",
+      "1": "Several days",
+      "2": "More than half the days",
+      "3": "Nearly every day"
+    },
+    "bands": {
+      "normal": "Normal / Minimal",
+      "mild": "Mild",
+      "moderate": "Moderate",
+      "moderatelySevere": "Moderately Severe",
+      "severe": "Severe"
+    },
+    "submit": "Submit Assessment",
+    "instantResult": "Instant Score Band",
+    "anxietySubscale": "Anxiety Subscale (GAD-2)",
+    "depressionSubscale": "Depression Subscale (PHQ-2)"
+  },
+  "consent": {
+    "title": "Student Data Privacy & Consent Ledger",
+    "dpdpHeading": "India Digital Personal Data Protection (DPDP) Act 2023 & Mental Healthcare Act 2017",
+    "purposeTitle": "Consent & Purpose Limitation",
+    "purposeDesc": "Data collected is solely used for student mental well-being support and is never disclosed to campus administration, professors, or third parties without explicit revocable consent.",
+    "cryptoTitle": "Zero-Knowledge Client-Side Encryption",
+    "cryptoDesc": "Your journal entries are encrypted on your device using AES-256-GCM. MindSahaay servers only store encrypted ciphertext. No administrator or counsellor can read your journals.",
+    "portabilityTitle": "Right to Information & Data Portability",
+    "portabilityDesc": "Students have the unconditional right to download a machine-readable JSON copy of all logged moods, assessments, appointments, and journals at any time.",
+    "erasureTitle": "Right to Erasure (Right to be Forgotten)",
+    "erasureDesc": "Students can permanently wipe all local and remote data instantly without requiring administrative approval.",
+    "grantConsent": "Grant Consent",
+    "revokeConsent": "Revoke Consent",
+    "policyVersion": "Policy Version",
+    "statusActive": "Active",
+    "statusRevoked": "Revoked"
+  }
+}
