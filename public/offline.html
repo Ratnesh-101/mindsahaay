@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#19443c" />
+    <title>You are offline - MindSahaay</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { margin: 0; font-family: system-ui, "Segoe UI", Roboto, "Noto Sans Devanagari", sans-serif; line-height: 1.6; background: #fbf8f3; color: #14231f; }
+      main { max-width: 36rem; margin: 0 auto; padding: 2rem 1.25rem; }
+      h1 { font-size: 1.5rem; margin: 0 0 .5rem; color: #19443c; }
+      ul { list-style: none; padding: 0; margin: 1.25rem 0; display: grid; gap: .75rem; }
+      a.call { display: flex; justify-content: space-between; align-items: center; min-height: 48px; padding: .5rem 1rem; border: 2px solid #19443c; border-radius: 12px; color: #19443c; text-decoration: none; font-weight: 600; background: #fff; }
+      a.call:focus-visible, button:focus-visible, a.switch:focus-visible { outline: 3px solid #8a5300; outline-offset: 2px; }
+      button { min-height: 44px; padding: .5rem 1.25rem; border-radius: 10px; border: 0; background: #19443c; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer; }
+      a.switch { display: inline-flex; align-items: center; min-height: 44px; color: #19443c; font-weight: 600; }
+      small { display: block; color: #3d4f4a; margin-top: 1rem; }
+      /* English is the default. offline.js sets html[lang] to "hi" for Hindi users or after the switch link is used. */
+      html[lang="hi"] [data-l="en"] { display: none; }
+      html:not([lang="hi"]) [data-l="hi"] { display: none; }
+      @media (prefers-color-scheme: dark) {
+        body { background: #0a0f12; color: #e4ece8; }
+        h1 { color: #74c69d; }
+        a.call { background: #101e1a; border-color: #74c69d; color: #e4ece8; }
+        a.switch { color: #74c69d; }
+        button { background: #74c69d; color: #0a0f12; }
+        small { color: #b5c4be; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p style="text-align: right; margin: 0">
+        <a href="#lang" class="switch" id="lang-switch">
+          <span data-l="en" lang="hi">हिन्दी में देखें</span>
+          <span data-l="hi" lang="en">View in English</span>
+        </a>
+      </p>
+      <h1><span data-l="en">You are offline</span><span data-l="hi" lang="hi">आप ऑफ़लाइन हैं</span></h1>
+      <p data-l="en">This page is not saved on your device yet. If you need help right now, you can still call. These numbers work without the app.</p>
+      <p data-l="hi" lang="hi">यह पेज अभी आपके डिवाइस पर सहेजा नहीं गया है। अगर आपको अभी मदद चाहिए, तो आप फिर भी कॉल कर सकते हैं। ये नंबर बिना ऐप के भी काम करते हैं।</p>
+      <ul aria-label="Crisis helplines" id="helplines">
+        <!--HELPLINES-->
+        <li><a class="call" href="tel:14416"><span>Tele-MANAS</span><span>14416</span></a></li>
+        <li><a class="call" href="tel:18005990019"><span>KIRAN</span><span>1800-599-0019</span></a></li>
+        <li><a class="call" href="tel:112"><span><span data-l="en">Emergency</span><span data-l="hi" lang="hi">आपातकालीन सेवा</span></span><span>112</span></a></li>
+        <!--/HELPLINES-->
+      </ul>
+      <p>
+        <button type="button" id="retry"><span data-l="en">Try again</span><span data-l="hi" lang="hi">फिर कोशिश करें</span></button>
+      </p>
+      <small data-l="en">Numbers last verified on <!--VERIFIED-->2026-11-20<!--/VERIFIED-->. MindSahaay is an educational support tool, not a medical service, and alerts inside it are not monitored 24/7.</small>
+      <small data-l="hi" lang="hi">नंबर अंतिम बार <!--VERIFIED-->2026-11-20<!--/VERIFIED--> को सत्यापित किए गए। MindSahaay एक शैक्षिक सहायता उपकरण है, चिकित्सा सेवा नहीं, और इसके भीतर के अलर्ट की 24/7 निगरानी नहीं होती।</small>
+    </main>
+    <script src="/offline.js"></script>
+  </body>
+</html>
