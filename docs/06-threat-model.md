@@ -1,0 +1,97 @@
+# 06 Threat Model
+
+Method: STRIDE per feature, then mapping to OWASP ASVS (v4.0.3) Level 1 chapters and OWASP Top 10 for LLM Applications. TODO: verify chapter and item numbers against the current published versions. The LLM Top 10 is referenced by the 2025 identifiers LLM01 to LLM10 (TODO verify, the list has been revised between versions).
+
+## 1. Assets and trust boundaries
+
+Assets: journals, chat text, screening results, mood history, appointments, identity (email), API keys, crisis content integrity.
+Boundaries: browser to Edge Functions; Edge Functions to Postgres; Edge Functions to Claude API; counsellor and moderator roles to student data.
+Known prototype weakness: `studentId` is a URL parameter and the anon key is the bearer, so anyone who guesses an ID can read, export or delete that student's data (TH-01).
+
+## 2. STRIDE per feature
+
+| ID | Feature | S | T | R | I | D | E | Threat and control |
+|---|---|---|---|---|---|---|---|---|
+| TH-01 | Auth / API | x | | | x | | x | Forged or guessed student ID reads others' data. Control: JWT-derived ID, RLS, no ID in path (FR-AUTH-02). |
+| TH-02 | Auth | x | | | | x | | Credential stuffing. Control: rate limit, breach-password check, generic errors. |
+| TH-03 | Mood | | x | | x | | | Tampering with another user's entries. Control: RLS with `auth.uid() = profile_id`. |
+| TH-04 | Screening | | x | | | | | Client forges item 9 value to suppress crisis. Control: server recomputes crisis from raw answers. |
+| TH-05 | Journal | | | | x | | | Server or DB leak exposes entries. Control: client-side AES-GCM; server stores ciphertext only. Residual: lost passphrase means unrecoverable data. |
+| TH-06 | Chat | | | | x | | | Chat history leaked via logs. Control: no message content in logs; retention window; RLS. |
+| TH-07 | Chat | | x | | | | | Prompt injection by user to make the bot give diagnosis or ignore safety (LLM01). Control: system prompt rules, output filter, crisis path outside the model. |
+| TH-08 | Chat | | | | x | | | System prompt or other users' data extracted (LLM07, LLM02). Control: no other-user data in context; prompt holds no secrets. |
+| TH-09 | Chat | | | | | x | | Token-cost exhaustion (LLM10). Control: rate limit, length and context caps, daily budget alarm. |
+| TH-10 | Chat | | x | | | | | Model output gives harmful advice (LLM05 improper output handling, LLM09 misinformation). Control: output filter, no diagnosis rule, evaluation set, render as plain text (no HTML). |
+| TH-11 | Crisis | | x | | | x | | Attacker or bug disables crisis banner (client tamper, outage). Control: server-side re-check, static offline helplines, tests. |
+| TH-12 | Booking | | x | | | | | Double booking or booking on another user's behalf. Control: unique slot index, JWT. |
+| TH-13 | Booking | | | | x | | x | Counsellor reads other counsellors' appointments or student identity beyond alias. Control: RLS views. |
+| TH-14 | Community | | x | x | | | | Harmful or triggering content published; no accountability. Control: pre-moderation, reports, moderation audit log. |
+| TH-15 | Community | x | | | x | | | Re-identification of authors. Control: alias, no author field in moderator view, strip metadata. |
+| TH-16 | Export/erase | | | x | x | | | Attacker with a hijacked session exports or erases. Control: re-authentication before erase and export, audit log, email notice. |
+| TH-17 | Supply chain | | x | | | | | Malicious npm dependency (LLM03 for model-side). Control: lockfile, audit in CI, minimal dependencies. |
+| TH-18 | Aggregates | | | | x | | | Small-cohort re-identification by Dean. Control: k >= 20 suppression (TODO validate). |
+| TH-19 | Web client | | x | | x | | | XSS via story or chat content. Control: React escaping, no `dangerouslySetInnerHTML`, CSP. |
+| TH-20 | Fine-tuning / data | | x | | | | | Training-data poisoning (LLM04). Control: not applicable, no fine-tuning planned; evaluation data kept separate. |
+| TH-21 | Follow-up RLS | | x | x | | | x | A student updates their own `risk_events` row (set `resolved`, change `action_taken`) and hides an open alert from the counsellor queue. Control: the student branch of the UPDATE policy was removed in 0005; only a counsellor with a current `risk_events` care share or a super admin can update; steps go through `advance_risk_followup`; `risk_followups` and `risk_checkbacks` are append-only. Regression: pgTAP 09 and `e2e/real/crisis-followup.spec.ts`. Detail in 2.1. |
+| TH-22 | Offline outbox on a shared device | | x | | x | | x | The next person on a hostel or library computer reads queued crisis or mood items, or signs in and flushes the previous student's queue under their own account. Control: per-user database name (SHA-256 of the user id), payload encrypted with AES-256-GCM under the vault key, flush skips other users' items, `student_id` fixed at enqueue time, logout keeps items only after an explicit choice (`LogoutGuardDialog`), 7-day purge. The review (G6-SEC-06) found the item kind and times stored as plain fields; they are now inside the encrypted payload and the database name is salted before hashing. Residual: the database name is still a stable identifier on that device; session expiry skips the logout dialog (items stay encrypted, purged after 7 days); not tested in a real shared browser yet (docs/29). |
+| TH-23 | Service worker cache | | x | | x | | | Authenticated or personal responses are cached and shown to the next user, or a cached script is poisoned. Control: the worker never intercepts cross-origin requests, paths with `/functions/`, `/rest/`, `/auth/`, `/realtime/`, `/storage/`, requests with an `Authorization` header or any non-GET request; only a build-time precache list is stored; a Playwright test fails if any cache entry looks like a backend URL; a new worker waits until the page asks it to take over. Residual: the activation cleanup of old caches is not tested end to end; real-device behaviour untested. |
+| TH-24 | Crisis-consent cache | | x | x | | | | The `mindsahaay_consent_crisis_<userId>` value in `localStorage` is edited. Setting it to `true` after withdrawal cannot cause a send: the consent is checked again against the server at send time and the item is dropped. Setting it to `false` only stops events being queued, which harms only the editor. Residual: the cache is plain text and may be stale if consent changes on another device while offline. |
+| TH-25 | Offline timestamps | | x | x | | | | A client back-dates or future-dates an event to dodge or distort the overdue clock. Control: `created_at` is set by a trigger (`enforce_risk_event_server_timestamp`), never taken from the client; the device clock is kept only as `payload.detected_at` and shown as a claim ("detected ... while the student was offline, received ..."). Regression: pgTAP 09 (an offline event with a past `created_at` gets the server time). Residual: a late event looks fresh to the overdue timer (L41). |
+| TH-26 | Counsellor screens | | x | | x | | | Text in a payload is rendered as HTML, or message text is written into a payload and read by a counsellor. Control: the queue view `risk_queue` returns only `offline` and `detected_at`; the UI reads those two fields and React escapes them; notifications carry generic text and the event id. Residual: a counsellor with a care share can still read the whole `risk_events` row through the table, so the "no message text" rule rests on the writers (client code and the edge function), not on a database check. |
+| TH-27 | Overdue escalation RPC | | | | | x | | Any signed-in user calls `escalate_overdue_risk()` repeatedly. It is granted to `authenticated` so the queue can call it. Effect is limited: one notification per (event, level) and counsellor, no data returned except a count. Residual: extra database load; no rate limit on this RPC. Severity Low by our estimate; the independent review rates the permission and the check-then-insert race Medium (docs/28, G6-SEC-07). Fixed in migration 0007 (permission and concurrency), with pgTAP 12 and 13. |
+| TH-28 | Overdue escalation, reopened events | | | | | x | | **Found by the independent review (docs/28, G6-SEC-01, Critical).** After "I want to talk" reopens an event, the escalation job sees the notification from the first cycle and skips the event, so a reopened crisis event is never escalated again. Not an attack; a defect that defeats the safeguard. **Fixed in migration 0007:** the "already notified" test is scoped to the current follow-up cycle instead of the event. Regression test written first and failing before the fix: `supabase/tests/12_g6_sec_findings.test.sql`; all pgTAP files pass now (146 tests, files 01 to 14, 2026-11-20). Residual: a reopened event is still visible only inside the app (L29, L50). |
+| TH-29 | Student alias lookup | | | | x | | x | **docs/28, G6-SEC-02, High.** `get_student_alias_for_care(uuid)` runs with owner rights and has no caller check, so any signed-in student who knows another student's UUID can read their alias. UUIDs are not listed anywhere a student can see, which lowers the likelihood, not the impact. **Fixed in migration 0007:** the function refuses unless the caller is a super admin or holds a current care share for that student. Regression: pgTAP 12 and 13 (passing). |
+| TH-30 | Logout dialog | | | | | x | | **docs/28, G6-SEC-03, High; fixed in the tree.** The keep-or-discard dialog swallowed Escape, covered the SOS button and showed no helplines, so a distressed student could be stuck behind a data question. Now Escape is the safe option ("stay signed in") and the three helplines are shown inside the dialog. Regression: `src/features/offline-ui/offline-ui.test.tsx`. |
+| TH-31 | Service worker update | | x | | | | | **docs/28, G6-SEC-04, High; fixed.** The update toast was built but not mounted, so a new worker would wait forever and an old cached shell stay in use. `UpdateToast` is now mounted in `AppLayout.tsx`. Unit tests cover the toast (`UpdateToast.test.tsx`) and the layout (`AppLayout.test.tsx`). The activation step that deletes old caches is not tested end to end and nothing was tested on a real device (L47). |
+| TH-32 | Student status card wording | | | | x | | | **docs/28, G6-SEC-05, Medium; fixed.** With no care share the card said "Your counsellor has been told" above small print saying nobody can see the alert: false reassurance (see HZ-21 in docs/08). The card now says "Alert recorded. It was not shared with a counsellor." and shows the helplines first. Regression: `FollowUp.test.tsx`. |
+| TH-33 | Realtime publication and RLS on streamed rows | | x | | x | | x | **Found by running the system, fixed in migration 0008.** The Supabase Realtime publication was empty, so the counsellor crisis queue never received live updates and a counsellor could believe the queue was quiet. Migration 0008 publishes `risk_events`, `risk_followups` and `notifications`. Adding a table to the publication does not widen access: Realtime checks the table RLS policies for each subscriber, so a counsellor receives only events of students who shared `risk_events` and a student only their own rows. The queue treats a change as a signal to refetch `risk_queue`, not as data. Realtime channels now get unique topics because re-subscribing to an existing topic raised "cannot add postgres_changes callbacks after subscribe()". Regression: `supabase/tests/14_realtime_publication.test.sql` (4 tests: the publication exists and holds the three tables), and `Counsellor.test.tsx` (the queue refetches on a change; mocked). Found in the real-backend suite (docs/29). Residual: that test checks membership only; the per-subscriber RLS filtering of streamed rows rests on the Supabase Realtime service and was not separately tested (TODO); local stack only, not a hosted project; if the socket drops the queue falls back to its periodic refetch. |
+| TH-34 | Duplicate risk events | | | x | | | | **Found by running the system, fixed.** One PHQ-9 item 9 answer created two `risk_events` rows and two audit rows, because both the edge function and the database trigger inserted. Effect: a doubled alert and a doubled audit trail, so the audit evidence could not be trusted and overdue notifications could be doubled. Control: the database trigger is the single source of truth for the event, the first follow-up step and the audit entry; the edge function no longer inserts them. Offline replay still upserts by client UUID and ignores duplicates. Regression: pgTAP 04 (one answer gives exactly one `risk_events` row) and `supabase/functions/server/app.test.ts` (the function makes no `risk_events` insert for item 9). Residual: a chat crisis event and an assessment event are separate events by design. |
+| TH-35 | Account erasure ordering | | | x | | | x | **Found by running the system, fixed.** Erasure wiped local data before the server delete and left queued encrypted entries on the device. If the server call failed, the student lost local data while the account stayed; queued items could also outlive the account. Control: `Settings.tsx` deletes the account on the server first; only on success does it call `clearAllLocalUserData({ discardOutbox: true, userId })`, which also discards the outbox; on failure nothing local is removed and the student can retry. Regression: `Settings.test.tsx` and the shared-device case of the real-backend suite (docs/29). Closes L49. Residual: consent records kept as legal evidence are a separate open question (07, TODO); a copy of data made before erasure is out of our control. |
+### 2.1 Detail: a student could resolve their own risk event (TH-21)
+
+- **What it was.** `risk_events` carried an UPDATE policy named "Counsellors or owners can update risk event resolution". Its owner branch let the student who owns the row update it. Through the normal REST endpoint a signed-in student could send a PATCH with `resolved = true` (or a new `action_taken`) for their own event.
+- **Impact.** An alert that should wait for a counsellor could be hidden by the same person it concerns, or by anyone holding their open session. Once the follow-up loop made `resolved` drive the queue and the overdue clock, this would also have defeated escalation and left the audit trail meaningless.
+- **Fix.** Migration `0005_crisis_followup.sql` drops that policy and creates "Counsellors or admins can update risk event resolution", which allows only a counsellor with a current care share scoped to `risk_events`, or a super admin. Closing is only possible through `advance_risk_followup`, and `risk_followups` and `risk_checkbacks` refuse UPDATE and direct DELETE with triggers.
+- **Regression tests.** `supabase/tests/09_crisis_security_and_isolation.test.sql` (student update affects 0 rows and the event stays unresolved; a counsellor with a share can update; another student cannot read follow-ups, prompts or answers; answers cannot be updated or deleted; a student cannot answer someone else's prompt); `e2e/real/crisis-followup.spec.ts` repeats the student PATCH through the real REST endpoint.
+- **Still open.** A counsellor with a care share can read the whole row. A super admin can update any event. Both are by design and unreviewed.
+
+## 3. OWASP ASVS Level 1 mapping (chapter level)
+
+| ASVS chapter | Applies via | Status |
+|---|---|---|
+| V1 Architecture | This document, 03-architecture.md | Planned |
+| V2 Authentication | Supabase Auth, TH-01, TH-02 | Planned |
+| V3 Session management | JWT expiry, refresh, logout | Planned |
+| V4 Access control | RLS, role views, TH-03, TH-13, TH-21, TH-26, TH-27, TH-33 | Planned |
+| V5 Validation, sanitisation, encoding | Input length caps, output encoding, TH-19 | Planned |
+| V7 Error handling and logging | No content in logs, generic errors | Planned |
+| V8 Data protection | Client-side encryption, retention, TH-05, TH-22, TH-24 | Planned |
+| V9 Communications | TLS, HSTS | Planned |
+| V10 Malicious code | Dependency audit, TH-17 | Planned |
+| V11 Business logic | Booking uniqueness, rate limits | Planned |
+| V12 Files and resources | Only export download; no uploads. Service worker scope and cache contents: TH-23 | Planned |
+| V13 API and web service | JWT-authenticated REST, CORS allow-list (prototype uses `/*` CORS, TODO tighten) | Planned |
+| V14 Configuration | Secrets in env, security headers, CSP | Planned |
+
+The ASVS mapping above is still a plan and nothing in it is marked Verified. Status changes to Verified only with a test or review record. Individual controls do have evidence: TH-21 and TH-25 are covered by pgTAP on a local Supabase, TH-22 and TH-24 by Vitest with a fake IndexedDB, and TH-23 by a Playwright test on a production build in desktop Chromium. See 18-testing-report.md.
+
+## 4. OWASP LLM Top 10 mapping
+
+| Risk | Relevance | Control | Threat |
+|---|---|---|---|
+| LLM01 Prompt injection | High | Instruction hierarchy, input delimiting, output filter, crisis outside model | TH-07 |
+| LLM02 Sensitive information disclosure | High | No cross-user context, minimal PII to model, no secrets in prompt | TH-08 |
+| LLM03 Supply chain | Medium | Pinned SDK versions, audit | TH-17 |
+| LLM04 Data and model poisoning | Low | No fine-tuning | TH-20 |
+| LLM05 Improper output handling | High | Plain-text render, filter | TH-10 |
+| LLM06 Excessive agency | Low | Model has no tools and cannot book, delete or send | design |
+| LLM07 System prompt leakage | Low | Prompt contains no secrets | TH-08 |
+| LLM08 Vector and embedding weaknesses | N/A | No RAG in v1 (TODO revisit if coping library retrieval added) | n/a |
+| LLM09 Misinformation | High | No-diagnosis rule, evaluation, disclaimer | TH-10 |
+| LLM10 Unbounded consumption | Medium | Rate limits and budget | TH-09 |
+
+## 5. Security testing
+
+Penetration-style tests in 10-test-plan.md (IDOR on `studentId`, RLS bypass, prompt injection suite, XSS strings). Only test against our own deployment.
+
+For the follow-up loop and the offline layer, an independent read-only review is in 28-new-features-security-review.md (written by another worker; read it for findings this table may not yet list) and the real-backend end-to-end specs are in 29-real-backend-e2e.md. Neither a ZAP scan nor a dependency audit has been run (L37).
