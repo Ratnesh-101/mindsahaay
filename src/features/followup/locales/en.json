@@ -1,0 +1,48 @@
+{
+  "followup": {
+    "title": "Following up on your recent alert",
+    "intro": "You or the app flagged that you may need extra support. Here is where things stand.",
+    "status": {
+      "open": "Your counsellor has been told",
+      "openNotShared": "Alert recorded. It was not shared with a counsellor.",
+      "acknowledged": "Your counsellor has seen this",
+      "contacted": "Your counsellor reached out",
+      "handed_off": "Your counsellor is arranging more support for you",
+      "closed": "This follow-up has been closed"
+    },
+    "statusHint": {
+      "open": "Alerts reach them inside the app. Nobody watches the app around the clock, so they may see it only the next time they sign in.",
+      "acknowledged": "They have it and will be in touch in their own time.",
+      "contacted": "Check your messages and appointments in the app.",
+      "handed_off": "Another person or service is picking this up with you.",
+      "closed": "You can still reach a counsellor or a helpline whenever you want to."
+    },
+    "notShared": "No counsellor can see this alert, because you have not shared risk alerts with one. If you need support now, please call a helpline from this card.",
+    "since": "Since {{when}}",
+    "checkbackTitle": "A quick check-in",
+    "checkbackQuestion": "How are you feeling now?",
+    "okay": "I'm okay",
+    "wantToTalk": "I want to talk",
+    "answeredOkay": "Thanks for letting us know. If things change, you can answer a check-in again or call a helpline from this card.",
+    "answeredTalk": "Thank you. We have told your counsellor that you would like to talk. This is an in-app alert and may not be seen right away. If you need someone now, call a helpline from this card.",
+    "answeredTalkNotShared": "Thank you. Your answer is saved, but no counsellor can see it, because you have not shared risk alerts with one. If you need someone now, call a helpline from this card.",
+    "answerError": "We could not save your answer. Please try again, or call a helpline from this card.",
+    "optOutError": "We could not save that choice. Please try again.",
+    "refreshError": "Your action went through, but this card could not refresh. Reload the page to see the latest status.",
+    "optOut": "Do not show me future check-in questions on this device",
+    "optOutHint": "Your counsellor can still see your follow-up status, and the helplines on this card always stay here.",
+    "offerTitle": "{{name}} offered you a session slot",
+    "offerTime": "Scheduled for: {{time}}",
+    "acceptOffer": "Accept this session",
+    "declineOffer": "Not now",
+    "offerAccepted": "Session confirmed! Check your appointments tab for details.",
+    "offerDeclined": "Offer declined. You can still reach out or book a session whenever you're ready.",
+    "offerError": "We could not process the session offer. Please try again or call a helpline from this card.",
+    "offerGone": "This offer is no longer available, and nothing was booked. You can still reach out or call a helpline from this card.",
+    "saving": "Saving...",
+    "helplinesTitle": "Talk to someone now",
+    "helplinesNote": "Free, confidential, and answered by people. These are not part of this app.",
+    "call": "Call {{name}} {{number}}",
+    "disclaimer": "This is educational support, not a diagnosis or emergency service."
+  }
+}
