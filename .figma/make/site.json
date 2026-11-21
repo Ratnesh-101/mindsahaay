@@ -1,0 +1,10 @@
+{
+  "description": "This platform offers mental health support for higher education students, featuring an AI chatbot, self-assessment tools, and a directory of mental health professionals.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
