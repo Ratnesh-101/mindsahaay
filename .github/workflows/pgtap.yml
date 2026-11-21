@@ -1,0 +1,46 @@
+name: Database pgTAP Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/pgtap.yml'
+  pull_request:
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/pgtap.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pgtap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Supabase pgTAP Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase local Docker stack
+        run: supabase start
+
+      - name: Reset database schema, run migrations and apply seed data
+        run: supabase db reset
+
+      - name: Run pgTAP database test suite
+        run: supabase test db
+
+      - name: Stop Supabase stack
+        if: always()
+        run: supabase stop
