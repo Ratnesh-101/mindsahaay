@@ -1,0 +1,42 @@
+{
+  "sync": {
+    "label": "Sync status",
+    "pending_one": "{{count}} item waiting to sync",
+    "pending_other": "{{count}} items waiting to sync",
+    "syncNow": "Sync now",
+    "syncing": "Syncing…",
+    "synced": "Synced just now",
+    "partial": "Some items could not be sent yet. They stay encrypted on this device and we will try again."
+  },
+  "banner": {
+    "message": "You are offline. Helplines and your safety plan still work. Chat checks messages only with the keyword safety layer while offline.",
+    "dismiss": "Dismiss offline notice",
+    "helplinesLabel": "Helplines you can call",
+    "call": "Call {{name}} on {{number}}",
+    "emergency": "Emergency"
+  },
+  "logout": {
+    "title_one": "{{count}} entry hasn't synced",
+    "title_other": "{{count}} entries haven't synced",
+    "body": "These entries are saved encrypted on this device only. Choose what should happen to them before you sign out.",
+    "stay": "Stay signed in",
+    "keep": "Keep encrypted on this device for up to 7 days",
+    "discard": "Discard",
+    "confirmTitle": "Discard these entries for good?",
+    "confirmBody": "They have not reached the server and cannot be recovered after this.",
+    "confirmDiscard": "Yes, discard and sign out",
+    "back": "Go back",
+    "working": "Working…",
+    "helplinesTitle": "Need to talk to someone right now? Call:"
+  },
+  "crisis": {
+    "verified": "Helpline numbers last verified {{date}}",
+    "offlineNote": "You are offline. This screen works without a connection, using the copy saved on this device."
+  },
+  "update": {
+    "message": "A new version of MindSahaay is available.",
+    "applying": "Updating…",
+    "refresh": "Refresh now",
+    "later": "Later"
+  }
+}
