@@ -1,0 +1,749 @@
+openapi: 3.1.0
+info:
+  title: MindSahaay Platform API
+  version: 2.1.0
+  description: |
+    Privacy-first digital mental health platform for Indian university students.
+    Compliant with the India Digital Personal Data Protection (DPDP) Act 2023,
+    Mental Healthcare Act 2017, and UGC Guidelines on Student Well-being.
+servers:
+  - url: https://{projectId}.supabase.co/functions/v1/server
+    description: Production Supabase Edge Function (default server slug)
+  - url: http://localhost:54321/functions/v1/server
+    description: Local Supabase Development Server
+  - url: https://{projectId}.supabase.co/functions/v1/make-server-6534ec8c
+    description: Legacy compatibility alias
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase Auth JWT token containing verified user claims (sub = user UUID).
+
+  responses:
+    Unauthorized:
+      description: Authentication failed. Missing or invalid Bearer JWT.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Access forbidden. Caller lacks required role or identity scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationError:
+      description: Input validation failed. Request body did not match schema.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Resource conflict (e.g. slot already booked).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        details:
+          type: object
+
+    HelplineResource:
+      type: object
+      properties:
+        teleManas:
+          type: string
+          example: "14416"
+        teleManasAlt:
+          type: string
+          example: "1800-891-4416"
+        kiran:
+          type: string
+          example: "1800-599-0019"
+        emergency:
+          type: string
+          example: "112"
+
+    CrisisProtocolPayload:
+      type: object
+      properties:
+        message:
+          type: string
+        helplines:
+          $ref: '#/components/schemas/HelplineResource'
+
+    AssessmentRequest:
+      type: object
+      required:
+        - instrument
+        - answers
+      properties:
+        instrument:
+          type: string
+          enum: [phq4, phq9, gad7]
+          description: Standardized mental health screening instrument.
+        answers:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 3
+          description: Integer score for each question (0=Not at all, 1=Several days, 2=More than half, 3=Nearly every day).
+
+    AssessmentResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        assessment:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            instrument:
+              type: string
+              enum: [phq4, phq9, gad7]
+            total:
+              type: integer
+            severity:
+              type: string
+              example: "Moderate"
+            item9_flag:
+              type: boolean
+              description: True if PHQ-9 Item 9 (suicidal ideation) is non-zero.
+            disclaimer:
+              type: string
+            crisis:
+              type: boolean
+            crisisProtocol:
+              $ref: '#/components/schemas/CrisisProtocolPayload'
+
+    ChatStreamRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          maxLength: 3000
+          description: Raw student query or message.
+        history:
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+                enum: [user, assistant]
+              content:
+                type: string
+
+    MoodRequest:
+      type: object
+      required:
+        - mood
+        - score
+      properties:
+        mood:
+          type: string
+          example: "Calm"
+        score:
+          type: integer
+          minimum: 1
+          maximum: 10
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["Hostel", "Exams"]
+        notes:
+          type: string
+          maxLength: 500
+
+    AppointmentRequest:
+      type: object
+      required:
+        - counsellorId
+      properties:
+        counsellorId:
+          type: string
+          format: uuid
+        slotId:
+          type: string
+          format: uuid
+        scheduledFor:
+          type: string
+          format: date-time
+        slotTime:
+          type: string
+          example: "4:30 PM"
+        notes:
+          type: string
+
+    VideoTokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Short-lived Daily.co consultation room meeting token.
+        roomUrl:
+          type: string
+          example: "https://mindsahaay.daily.co/mindsahaay-appointment-123"
+        roomName:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        role:
+          type: string
+          enum: [student, counsellor]
+
+    ModerationClassifyRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          maxLength: 5000
+          description: Text content of community post or comment to screen.
+        title:
+          type: string
+          maxLength: 300
+        circleId:
+          type: string
+          format: uuid
+
+    ModerationClassifyResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [approved, flagged, rejected]
+        riskLevel:
+          type: string
+          enum: [crisis, moderate, medium, low, none]
+        flagged:
+          type: boolean
+        reasons:
+          type: array
+          items:
+            type: string
+        containsPII:
+          type: boolean
+        redactedContent:
+          type: string
+        crisis:
+          type: boolean
+        crisisProtocol:
+          $ref: '#/components/schemas/CrisisProtocolPayload'
+
+    InstitutionalAnalyticsResponse:
+      type: object
+      properties:
+        institutionId:
+          type: string
+          format: uuid
+        kAnonymityThreshold:
+          type: integer
+          example: 10
+        complianceFramework:
+          type: string
+        privacyGuarantee:
+          type: string
+        assessmentAggregates:
+          type: array
+          items:
+            type: object
+            properties:
+              instrument:
+                type: string
+              severity:
+                type: string
+              report_month:
+                type: string
+                format: date
+              sample_size:
+                type: integer
+                minimum: 10
+              mean_score:
+                type: number
+              crisis_indicators:
+                type: integer
+        moodAggregates:
+          type: array
+          items:
+            type: object
+            properties:
+              mood:
+                type: string
+              report_week:
+                type: string
+                format: date
+              sample_size:
+                type: integer
+                minimum: 10
+              avg_intensity:
+                type: number
+        riskAggregates:
+          type: array
+          items:
+            type: object
+            properties:
+              severity_level:
+                type: string
+              report_month:
+                type: string
+                format: date
+              incident_count:
+                type: integer
+
+    JournalRequest:
+      type: object
+      required:
+        - ciphertext
+        - iv
+        - salt
+      properties:
+        ciphertext:
+          type: string
+          description: Client-side AES-GCM-256 encrypted payload.
+        iv:
+          type: string
+          description: Initialization vector in Base64.
+        salt:
+          type: string
+          description: Key derivation salt in Base64.
+
+    ThoughtRecordRequest:
+      type: object
+      required:
+        - ciphertext
+        - iv
+        - salt
+      properties:
+        ciphertext:
+          type: string
+          description: Zero-knowledge client-side encrypted CBT thought record.
+        iv:
+          type: string
+        salt:
+          type: string
+
+    SafetyPlanRequest:
+      type: object
+      properties:
+        warningSigns:
+          type: array
+          items:
+            type: string
+        copingStrategies:
+          type: array
+          items:
+            type: string
+        emergencyContacts:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              relationship:
+                type: string
+              phone:
+                type: string
+        safeEnvironments:
+          type: array
+          items:
+            type: string
+        reasonsToLive:
+          type: array
+          items:
+            type: string
+
+paths:
+  /health:
+    get:
+      summary: Health check & compliance status
+      description: Returns service readiness and regulatory frameworks.
+      responses:
+        '200':
+          description: Service operating normally.
+
+  /assessments:
+    post:
+      summary: Submit standardized assessment (PHQ-4, PHQ-9, GAD-7)
+      description: |
+        Scores instrument server-side using clinical cutoff bands.
+        If PHQ-9 item 9 is non-zero, automatically activates crisis protocol,
+        records a risk_event, and delivers emergency helpline information.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentRequest'
+      responses:
+        '200':
+          description: Assessment successfully scored and logged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /chat/stream:
+    post:
+      summary: Real-time streaming AI companion (Claude Opus 5.5)
+      description: |
+        Protected by Postgres token-bucket rate limiting (20 req/min).
+        Executes deterministic crisis lexicon check, PII redactor,
+        frozen non-diagnostic system prompt, and clinical output guard.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatStreamRequest'
+      responses:
+        '200':
+          description: Server-Sent Events stream delivering assistant tokens.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          description: Rate limit exceeded.
+
+  /me/export:
+    get:
+      summary: Export all personal data (DPDP Act 2023 Section 11 Data Portability)
+      description: Returns machine-readable JSON containing all student records.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Machine-readable JSON export of student data.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /me:
+    delete:
+      summary: Right to Erasure / Forgotten (DPDP Act 2023 Section 12)
+      description: |
+        Permanently erases student profile and cascades across all personal health records,
+        journals, safety plans, and auth credentials with immutable audit logging.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: All user records permanently erased.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /moods:
+    post:
+      summary: Save daily mood check-in
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoodRequest'
+      responses:
+        '200':
+          description: Mood entry saved.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /dashboard:
+    get:
+      summary: Retrieve student dashboard data
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Aggregated student dashboard bundle.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /appointments:
+    post:
+      summary: Book consultation slot atomically
+      description: |
+        Atomically claims counsellor availability slot with Postgres row-level locking
+        (FOR UPDATE) to prevent concurrent double-booking.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentRequest'
+      responses:
+        '201':
+          description: Appointment successfully confirmed and slot claimed.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /appointments/{id}/video-token:
+    post:
+      summary: Generate Daily.co private consultation video token
+      description: |
+        Issues a short-lived token for the Daily.co private video room.
+        Access is strictly restricted to the scheduled student and counsellor.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Video room token issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoTokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Appointment not found.
+
+  /moderation/classify:
+    post:
+      summary: Classify community content against risk and safety guidelines
+      description: |
+        Reuses the platform risk triage pipeline (lexicon check, PII redactor,
+        crisis classifier, output guard) for community circle posts and comments.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModerationClassifyRequest'
+      responses:
+        '200':
+          description: Moderation classification result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModerationClassifyResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /institutions/{id}/analytics:
+    get:
+      summary: Retrieve k-anonymity institutional well-being analytics (k >= 10)
+      description: |
+        Returns aggregated well-being trends strictly through views enforcing k >= 10 suppression.
+        Accessible only to verified institution_admin of this institution or super_admin.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Institutional anonymized analytics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstitutionalAnalyticsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /journals:
+    get:
+      summary: Retrieve encrypted journal entries (Zero-Knowledge)
+      description: Returns ciphertext, iv, and salt only. Plaintext is never stored on server.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of encrypted journal entries.
+    post:
+      summary: Sync client-side encrypted journal entry
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JournalRequest'
+      responses:
+        '200':
+          description: Encrypted entry saved.
+
+  /journals/{id}:
+    delete:
+      summary: Delete an encrypted journal entry
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Entry deleted.
+
+  /thought-records:
+    get:
+      summary: Retrieve Zero-Knowledge CBT Thought Records
+      description: Returns client-side encrypted thought records. Counsellors and admins have zero access.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of encrypted thought records.
+    post:
+      summary: Save Zero-Knowledge CBT Thought Record
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThoughtRecordRequest'
+      responses:
+        '200':
+          description: Thought record saved.
+
+  /thought-records/{id}:
+    delete:
+      summary: Delete Zero-Knowledge CBT Thought Record
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Thought record deleted.
+
+  /circles:
+    get:
+      summary: List community support circles
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Available peer support circles.
+
+  /circles/{id}/posts:
+    get:
+      summary: List approved posts in a circle
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Approved posts in this circle.
+    post:
+      summary: Create community post in circle
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - content
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+                isAnonymous:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          description: Post created and queued or approved.
+
+  /safety-plan:
+    get:
+      summary: Retrieve student Stanley-Brown safety plan
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Student safety plan.
+    put:
+      summary: Create or update student safety plan
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SafetyPlanRequest'
+      responses:
+        '200':
+          description: Safety plan updated.
