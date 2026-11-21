@@ -1,0 +1,51 @@
+{
+  "chat": {
+    "title": "MindMate",
+    "status": "AI wellness guide",
+    "statusIdle": "Here whenever you want to talk",
+    "statusThinking": "Thinking...",
+    "aiLabel": "AI, not a human",
+    "youLabel": "You",
+    "greeting": "Hi, I am MindMate. I am an AI, not a human, and I am here to listen and help you find one small next step. How are you feeling right now?",
+    "inputLabel": "Message for MindMate",
+    "placeholder": "Jo bhi mann mein hai, yahan likho... (private rakha jaata hai)",
+    "send": "Send message",
+    "logLabel": "Conversation with MindMate",
+    "thinking": "MindMate is thinking...",
+    "replied": "MindMate has replied.",
+    "clear": "Clear conversation",
+    "clearConfirm": "Yes, clear it",
+    "clearCancel": "Keep it",
+    "cleared": "Conversation cleared.",
+    "disclaimer": "MindMate is an AI that offers student wellbeing guidance. It is not a doctor and does not diagnose. In a crisis, call Tele-MANAS 14416, KIRAN 1800-599-0019 or 112.",
+    "degradedTitle": "MindMate is offline right now",
+    "degradedBody": "The AI companion cannot be reached, so replies are paused. Nothing is being made up in its place. You can still use breathing, your safety plan, or book a counsellor below.",
+    "rateLimited": "You are sending messages very quickly. Please take a breath and try again in a minute.",
+    "sendError": "That message did not go through. Please try again.",
+    "chips": {
+      "label": "Suggested actions",
+      "breathing": "Start breathing",
+      "safetyPlan": "Open safety plan",
+      "booking": "Suggest booking",
+      "bookingHint": "You can book a confidential session from Counsellors in the menu."
+    },
+    "starters": {
+      "label": "Conversation starters",
+      "overwhelmed": "Main bahut overwhelmed feel kar raha hoon",
+      "focus": "Padhai mein focus nahi ho raha",
+      "relax": "Mujhe abhi relax hona hai"
+    },
+    "crisis": {
+      "title": "You matter, and you do not have to face this alone",
+      "body": "What you shared sounds very painful. Please talk to a trained person right now. These services are free, confidential and open 24/7.",
+      "helplines": "Helplines",
+      "safetyPlan": "Open my safety plan",
+      "messageCounsellor": "Message my counsellor",
+      "counsellorSent": "Your counsellor has been alerted and will reach out.",
+      "counsellorFailed": "We could not alert a counsellor. Please call a helpline above or book a session.",
+      "continue": "I have read this, continue chatting",
+      "paused": "Chat is paused while you look at the support options above.",
+      "pinned": "This support card stays visible for the rest of this session."
+    }
+  }
+}
