@@ -71,4 +71,30 @@ export interface DPDPExportPayload {
   safetyPlans: any[];
   careShares: any[];
   auditLogs: any[];
+  encryptedBlobs?: Array<{
+    slot: string;
+    ciphertext: string;
+    iv: string;
+    salt: string;
+    version: number;
+    updated_at: string;
+  }>;
+  chatSessions?: Array<{
+    id: string;
+    title: string;
+    salt: string;
+    key_version: number;
+    created_at: string;
+    updated_at?: string;
+    chat_messages?: any[];
+  }>;
+  chatMessages?: Array<{
+    id: string;
+    session_id: string;
+    sender_role: string;
+    encrypted_content: string;
+    iv: string;
+    seq: number;
+    created_at: string;
+  }>;
 }

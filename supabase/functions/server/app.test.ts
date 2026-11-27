@@ -317,6 +317,115 @@ describe.skipIf(!appModule)("edge function app", () => {
       expect(journalCall).toBeDefined();
     });
 
+    it("export includes encrypted_blobs rows filtered strictly by authenticated user_id", async () => {
+      const mockBlobs = [
+        {
+          slot: "mindsahaay_sec_0f9a2b8e3d1c4a7e",
+          ciphertext: "blob-ct-xyz789",
+          iv: "blob-iv-xyz789",
+          salt: "blob-salt-xyz789",
+          version: 2,
+          updated_at: "2026-11-27T10:00:00Z",
+        },
+      ];
+      const { app, auth, id, user } = setup({
+        userResult: (call) => {
+          if (call.table === "encrypted_blobs") return { data: mockBlobs };
+          return { data: null };
+        },
+      });
+
+      const res = await app.request("/me/export", { headers: auth });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+
+      const blobCall = user.calls.find((c) => c.table === "encrypted_blobs");
+      expect(blobCall).toBeDefined();
+      expect(blobCall?.filters).toContainEqual(["user_id", id]);
+      expect(body.encryptedBlobs).toEqual(mockBlobs);
+
+      // Backwards-compatible route also includes encrypted_blobs
+      const compatRes = await app.request(`/students/${id}/export`, { headers: auth });
+      expect(compatRes.status).toBe(200);
+      const compatBody = await compatRes.json();
+      expect(compatBody.encryptedBlobs).toEqual(mockBlobs);
+    });
+
+    it("export includes chat ciphertext rows and sessions filtered strictly by authenticated user_id", async () => {
+      const mockChatSessions = [
+        {
+          id: "session-101",
+          title: "Well-being Chat",
+          salt: "base64-session-salt-abc",
+          key_version: 1,
+          created_at: "2026-11-27T08:00:00Z",
+          updated_at: "2026-11-27T08:30:00Z",
+          chat_messages: [
+            {
+              id: "msg-1",
+              session_id: "session-101",
+              sender_role: "user",
+              encrypted_content: "U2FsdGVkX1_chat_ciphertext_user",
+              iv: "iv_chat_msg_1",
+              seq: 1,
+              created_at: "2026-11-27T08:05:00Z",
+            },
+            {
+              id: "msg-2",
+              session_id: "session-101",
+              sender_role: "assistant",
+              encrypted_content: "U2FsdGVkX1_chat_ciphertext_assistant",
+              iv: "iv_chat_msg_2",
+              seq: 2,
+              created_at: "2026-11-27T08:06:00Z",
+            },
+          ],
+        },
+      ];
+
+      const { app, auth, id, user } = setup({
+        userResult: (call) => {
+          if (call.table === "chat_sessions") return { data: mockChatSessions };
+          return { data: null };
+        },
+      });
+
+      const res = await app.request("/me/export", { headers: auth });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+
+      const chatSessionCall = user.calls.find((c) => c.table === "chat_sessions");
+      expect(chatSessionCall).toBeDefined();
+      expect(chatSessionCall?.filters).toContainEqual(["user_id", id]);
+
+      // Both chatSessions and flattened chatMessages are present
+      expect(body.chatSessions).toHaveLength(1);
+      expect(body.chatSessions[0].id).toBe("session-101");
+      expect(body.chatSessions[0].salt).toBe("base64-session-salt-abc");
+      expect(body.chatMessages).toHaveLength(2);
+      expect(body.chatMessages[0]).toMatchObject({
+        session_id: "session-101",
+        sender_role: "user",
+        encrypted_content: "U2FsdGVkX1_chat_ciphertext_user",
+        iv: "iv_chat_msg_1",
+        seq: 1,
+      });
+      expect(body.chatMessages[1]).toMatchObject({
+        session_id: "session-101",
+        sender_role: "assistant",
+        encrypted_content: "U2FsdGVkX1_chat_ciphertext_assistant",
+        iv: "iv_chat_msg_2",
+        seq: 2,
+      });
+
+      // Backwards-compatible route also contains chat sessions and messages
+      const compatRes = await app.request(`/students/${id}/export`, { headers: auth });
+      expect(compatRes.status).toBe(200);
+      const compatBody = await compatRes.json();
+      expect(compatBody.chatSessions).toHaveLength(1);
+      expect(compatBody.chatMessages).toHaveLength(2);
+    });
+
     it("delete erases the token user, not an id from the URL or body", async () => {
       const { app, auth, id, admin } = setup();
       for (const [url, init] of [

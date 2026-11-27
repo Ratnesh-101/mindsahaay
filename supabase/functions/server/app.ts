@@ -342,6 +342,8 @@ export function createApp(deps: AppDeps) {
         careSharesRes,
         notificationsRes,
         auditRes,
+        blobsRes,
+        chatSessionsRes,
       ] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
         supabase.from("consents").select("*").eq("student_id", user.id),
@@ -355,6 +357,8 @@ export function createApp(deps: AppDeps) {
         supabase.from("care_shares").select("*").eq("student_id", user.id),
         supabase.from("notifications").select("*").eq("user_id", user.id),
         supabase.from("audit_log").select("id, action, resource_type, created_at").eq("actor_id", user.id),
+        supabase.from("encrypted_blobs").select("slot, ciphertext, iv, salt, version, updated_at").eq("user_id", user.id),
+        supabase.from("chat_sessions").select("id, title, salt, key_version, created_at, updated_at, chat_messages(id, session_id, sender_role, encrypted_content, iv, seq, created_at)").eq("user_id", user.id),
       ]);
 
       // Record export event in immutable audit log
@@ -365,6 +369,13 @@ export function createApp(deps: AppDeps) {
         resource_id: user.id,
         details: { format: "json", requested_at: new Date().toISOString() },
       });
+
+      const chatSessions = chatSessionsRes.data || [];
+      const chatMessages = chatSessions.flatMap((s: any) =>
+        Array.isArray(s.chat_messages)
+          ? s.chat_messages.map((m: any) => ({ ...m, session_id: s.id }))
+          : []
+      );
 
       const exportPayload: DPDPExportPayload = {
         exportMetadata: {
@@ -383,11 +394,17 @@ export function createApp(deps: AppDeps) {
         safetyPlans: safetyRes.data ? [safetyRes.data] : [],
         careShares: careSharesRes.data || [],
         auditLogs: auditRes.data || [],
+        encryptedBlobs: blobsRes.data || [],
+        chatSessions,
+        chatMessages,
       };
 
       return c.json({
         ...exportPayload,
         thoughtRecords: thoughtRes.data || [],
+        encryptedBlobs: blobsRes.data || [],
+        chatSessions,
+        chatMessages,
       });
     } catch (err: any) {
       return c.json({ error: err.message || "Failed to generate DPDP export" }, 500);
@@ -399,14 +416,23 @@ export function createApp(deps: AppDeps) {
     const user = c.get("user");
     const supabase = c.get("supabase");
 
-    const [profile, moods, assessments, appointments, journals, thoughts] = await Promise.all([
+    const [profile, moods, assessments, appointments, journals, thoughts, blobs, chatSessions] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase.from("mood_entries").select("*").eq("student_id", user.id),
       supabase.from("assessments").select("*").eq("student_id", user.id),
       supabase.from("appointments").select("*").eq("student_id", user.id),
       supabase.from("journal_entries").select("id, ciphertext, iv, salt, created_at").eq("student_id", user.id),
       supabase.from("thought_records").select("id, ciphertext, iv, salt, created_at").eq("student_id", user.id),
+      supabase.from("encrypted_blobs").select("slot, ciphertext, iv, salt, version, updated_at").eq("user_id", user.id),
+      supabase.from("chat_sessions").select("id, title, salt, key_version, created_at, updated_at, chat_messages(id, session_id, sender_role, encrypted_content, iv, seq, created_at)").eq("user_id", user.id),
     ]);
+
+    const sessions = chatSessions.data || [];
+    const messages = sessions.flatMap((s: any) =>
+      Array.isArray(s.chat_messages)
+        ? s.chat_messages.map((m: any) => ({ ...m, session_id: s.id }))
+        : []
+    );
 
     return c.json({
       exportMetadata: {
@@ -420,6 +446,9 @@ export function createApp(deps: AppDeps) {
       appointments: appointments.data || [],
       journals: journals.data || [],
       thoughtRecords: thoughts.data || [],
+      encryptedBlobs: blobs.data || [],
+      chatSessions: sessions,
+      chatMessages: messages,
     });
   });
 
