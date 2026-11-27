@@ -7,6 +7,8 @@ export { expect, adminSql, lit, API, ANON_KEY, FUNCTIONS_SLUG };
 /** Every test imports `test` from here so the whole project skips when the stack is down. */
 export const test = base.extend<{ _backendGuard: void }>({
   _backendGuard: [
+    // Playwright fixtures must destructure their first argument; the empty pattern is intentional.
+    // eslint-disable-next-line no-empty-pattern
     async ({}, use, testInfo) => {
       if (process.env.REAL_BACKEND_DOWN) {
         testInfo.skip(true, `real backend not running, skipped (${process.env.REAL_BACKEND_DOWN})`);
@@ -158,7 +160,7 @@ export async function submitAssessment(token: string, instrument: string, answer
     headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ instrument, answers }),
   });
-  return { status: res.status, json: (await res.json()) as { assessment?: { crisis?: boolean } } };
+  return { status: res.status, json: (await res.json()) as { assessment?: { crisis?: boolean; crisisProtocol?: unknown; item9_flag?: boolean } } };
 }
 
 /** Local admin SQL: makes a signed-in user a verified counsellor of the seeded institution. */
