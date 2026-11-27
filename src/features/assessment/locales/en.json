@@ -1,0 +1,11 @@
+{
+  "assessmentSave": {
+    "saving": "Saving your result...",
+    "saved": "Your result is saved to your private history.",
+    "failed": "Your result was NOT saved. The score above is only shown on this screen. Please try saving again.",
+    "retry": "Try saving again",
+    "preview": "Preview mode: this result is kept for this tab only and is not saved anywhere.",
+    "historyError": "We could not load your past screenings. Please try again.",
+    "historyEmpty": "No screenings saved yet. Your completed screenings will appear here."
+  }
+}

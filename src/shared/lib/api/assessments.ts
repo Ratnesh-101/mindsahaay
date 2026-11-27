@@ -59,6 +59,8 @@ export const AssessmentItemSchema = z.object({
   completed_at: z.string().optional(),
   created_at: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
+  /** true for labelled sample rows added by "Load demo data"; absent or false for real screenings. */
+  is_demo: z.boolean().optional(),
 });
 export type AssessmentItem = z.infer<typeof AssessmentItemSchema>;
 
@@ -272,6 +274,7 @@ export async function fetchAssessments(instrument?: AssessmentInstrument): Promi
     crisis: Boolean(row.item9_flag),
     completed_at: row.completed_at,
     created_at: row.created_at,
+    ...(row.is_demo === true ? { is_demo: true } : {}),
   }));
 }
 

@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
+import "./i18n";
+import { CONTENT_NS } from "../journal/registerBundle";
 import Icon from "../../shared/ui/Icon";
 import {
   useAssessments,
@@ -71,37 +74,31 @@ export default function Assessment({
     disclaimer: string;
   } | null>(null);
 
-  const { data: dbHistory } = useAssessments();
+  const { data: dbHistory, isError: historyFailed, refetch: refetchHistory } = useAssessments();
   const submitMutation = useSubmitAssessment();
+  const { t: tc } = useTranslation(CONTENT_NS);
+  // Whether the finished screening really reached the backend. "preview" = offline preview, never saved.
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed" | "preview">("idle");
+  const [pending, setPending] = useState<{ instrument: AssessmentInstrument; answers: number[] } | null>(null);
 
-  // Demo fallback history
-  const [demoHistory, setDemoHistory] = useState<AssessmentItem[]>([
-    {
-      id: "demo-hist-1",
-      instrument: "phq4",
-      answers: [1, 1, 1, 0],
-      total: 3,
-      severity: "mild",
-      item9_flag: false,
-      disclaimer: PHQ4_DISCLAIMER,
-      crisis: false,
-      completed_at: new Date(Date.now() - 86400000 * 7).toISOString(),
-    },
-    {
-      id: "demo-hist-2",
-      instrument: "gad7",
-      answers: [2, 1, 1, 1, 0, 1, 0],
-      total: 6,
-      severity: "mild",
-      item9_flag: false,
-      disclaimer: GAD7_DISCLAIMER,
-      crisis: false,
-      completed_at: new Date(Date.now() - 86400000 * 14).toISOString(),
-    },
-  ]);
+  // The preview starts empty too: no invented past screenings, ever.
+  const [demoHistory, setDemoHistory] = useState<AssessmentItem[]>([]);
 
   const isDemo = isDemoModeActive();
-  const history = isDemo ? demoHistory : (dbHistory ?? demoHistory);
+  const history = isDemo ? demoHistory : (dbHistory ?? []);
+
+  /** Sends the answers to the backend and records, truthfully, whether it was confirmed. */
+  const persist = async (inst: AssessmentInstrument, finalAnswers: number[]) => {
+    setPending({ instrument: inst, answers: finalAnswers });
+    setSaveState("saving");
+    try {
+      await submitMutation.mutateAsync({ instrument: inst, answers: finalAnswers });
+      setSaveState("saved");
+      setPending(null);
+    } catch {
+      setSaveState("failed");
+    }
+  };
 
   const currentQuestions =
     instrument === "phq9" ? PHQ9_QUESTIONS : instrument === "gad7" ? GAD7_QUESTIONS : PHQ4_QUESTIONS;
@@ -115,9 +112,11 @@ export default function Assessment({
     setAnswers([]);
     setCompletedResult(null);
     setShowItem9Crisis(false);
+    setSaveState("idle");
+    setPending(null);
   };
 
-  const handleAnswer = async (score: number) => {
+  const handleAnswer = (score: number) => {
     const nextAnswers = [...answers, score];
     setAnswers(nextAnswers);
 
@@ -144,15 +143,9 @@ export default function Assessment({
 
       // Persist to backend or demo store
       if (!isDemo) {
-        try {
-          await submitMutation.mutateAsync({
-            instrument,
-            answers: nextAnswers,
-          });
-        } catch {
-          // Handled via local score result
-        }
+        void persist(instrument, nextAnswers);
       } else {
+        setSaveState("preview");
         const newHistItem: AssessmentItem = {
           id: `demo-eval-${Date.now()}`,
           instrument,
@@ -174,6 +167,8 @@ export default function Assessment({
     setAnswers([]);
     setCompletedResult(null);
     setShowItem9Crisis(false);
+    setSaveState("idle");
+    setPending(null);
   };
 
   // 1. CRITICAL ITEM-9 CRISIS PROTOCOL CARD (shown before normal result)
@@ -347,6 +342,27 @@ export default function Assessment({
             )}
           </div>
 
+          <div role="status" aria-live="polite" data-testid="assessment-save-status" style={{ marginTop: 18, fontSize: 13 }}>
+            {saveState === "saving" && <span className="muted">{tc("assessmentSave.saving")}</span>}
+            {saveState === "saved" && <span className="saved-label">{"\u2713 "}{tc("assessmentSave.saved")}</span>}
+            {saveState === "preview" && <span className="muted">{tc("assessmentSave.preview")}</span>}
+          </div>
+          {saveState === "failed" && (
+            <div role="alert" data-testid="assessment-save-failed" style={{ marginTop: 12, color: "var(--danger)", fontWeight: 600 }}>
+              <p>{tc("assessmentSave.failed")}</p>
+              {pending && (
+                <button
+                  type="button"
+                  className="primary-btn"
+                  style={{ marginTop: 8 }}
+                  onClick={() => void persist(pending.instrument, pending.answers)}
+                >
+                  {tc("assessmentSave.retry")}
+                </button>
+              )}
+            </div>
+          )}
+
           <div
             style={{
               marginTop: 28,
@@ -484,6 +500,14 @@ export default function Assessment({
       </section>
 
       {/* Historical Assessment Trends */}
+      {!isDemo && historyFailed && (
+        <div role="alert" className="panel" style={{ marginTop: 32, maxWidth: 740, width: "100%" }}>
+          <p style={{ color: "var(--danger)", fontWeight: 600 }}>{tc("assessmentSave.historyError")}</p>
+          <button type="button" className="primary-btn" style={{ marginTop: 8 }} onClick={() => void refetchHistory()}>
+            {tc("common.retry")}
+          </button>
+        </div>
+      )}
       {history.length > 0 && (
         <section className="panel" style={{ marginTop: 32, maxWidth: 740, width: "100%" }}>
           <div className="panel-head">
