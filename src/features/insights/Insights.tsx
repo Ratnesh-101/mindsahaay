@@ -16,6 +16,7 @@ import { computeInsights } from "./computeInsights";
 import { getDemoMoodEntries } from "./demoMoods";
 import type { MoodRange } from "./types";
 import { INSIGHTS_NS } from "./i18n";
+import { DemoBadge, DemoDataNotice } from "../demo-data";
 
 export interface InsightsProps {
   initialMoods?: MoodEntry[];
@@ -294,6 +295,7 @@ export default function Insights({ initialMoods, referenceDate }: InsightsProps 
             </div>
 
             {/* Trend Chart (Recharts) */}
+            {insights.chartData.some((row) => row.isDemo) && <DemoDataNotice />}
             {viewMode === "chart" ? (
               <div
                 style={{ width: "100%", height: 220 }}
@@ -365,7 +367,10 @@ export default function Insights({ initialMoods, referenceDate }: InsightsProps 
                   <tbody>
                     {insights.chartData.map((row) => (
                       <tr key={row.id} style={{ borderBottom: "1px solid var(--line, #e2dacd)" }}>
-                        <td style={{ padding: "8px 6px" }}>{row.fullDate}</td>
+                        <td style={{ padding: "8px 6px" }}>
+                          {row.fullDate}
+                          {row.isDemo && <DemoBadge />}
+                        </td>
                         <td style={{ padding: "8px 6px" }}>{row.mood}</td>
                         <td style={{ padding: "8px 6px", fontWeight: 700 }}>{row.score} / 10</td>
                         <td style={{ padding: "8px 6px" }}>
@@ -408,7 +413,10 @@ export default function Insights({ initialMoods, referenceDate }: InsightsProps 
               <div className="support-bars">
                 {insights.tagFrequencies.map((item) => (
                   <div key={item.tag}>
-                    <span>{item.tag}</span>
+                    <span>
+                      {item.tag}
+                      {item.demoCount ? <DemoBadge count={item.demoCount} /> : null}
+                    </span>
                     <div
                       className="progress"
                       role="progressbar"

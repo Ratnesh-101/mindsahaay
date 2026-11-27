@@ -14,6 +14,8 @@ export const MoodEntrySchema = z.object({
   tags: z.array(z.string()).default([]),
   notes: z.string().nullable().optional(),
   created_at: z.string(),
+  /** true for labelled sample rows added by "Load demo data"; absent or false for real entries. */
+  is_demo: z.boolean().optional(),
 });
 
 export type MoodEntry = z.infer<typeof MoodEntrySchema>;

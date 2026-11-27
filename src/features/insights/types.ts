@@ -21,6 +21,8 @@ export interface TagFrequency {
   tag: string;
   count: number;
   percentage: number;
+  /** Number of the counted check-ins that are labelled sample rows; present only when above 0. */
+  demoCount?: number;
 }
 
 export interface ChartDataPoint {
@@ -31,6 +33,8 @@ export interface ChartDataPoint {
   score: number;
   mood: string;
   tags: string[];
+  /** Present (true) only for labelled sample rows. */
+  isDemo?: boolean;
 }
 
 export interface ComputedInsights {

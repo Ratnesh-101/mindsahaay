@@ -75,7 +75,7 @@ describe("moods API module", () => {
   });
 
   it("enqueues mood entry when offline with a client UUID", async () => {
-    localStorage.setItem("mindsahaay_demo_mode", "true");
+    sessionStorage.setItem("mindsahaay_demo_mode", "true");
     vi.spyOn(supabase.auth, "getSession").mockResolvedValue({
       data: { session: mockSession },
       error: null,

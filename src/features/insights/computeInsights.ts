@@ -114,10 +114,12 @@ export function computeInsights(
 
   // Calculate Emotion Tag Frequencies from window entries
   const tagCounts: Record<string, number> = {};
+  const tagDemoCounts: Record<string, number> = {};
   windowMoods.forEach((entry) => {
     (entry.tags || []).forEach((tag) => {
       if (tag && typeof tag === "string") {
         tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+        if (entry.is_demo === true) tagDemoCounts[tag] = (tagDemoCounts[tag] || 0) + 1;
       }
     });
   });
@@ -127,6 +129,7 @@ export function computeInsights(
       tag,
       count,
       percentage: totalCheckIns > 0 ? Math.round((count / totalCheckIns) * 100) : 0,
+      ...(tagDemoCounts[tag] ? { demoCount: tagDemoCounts[tag] } : {}),
     }))
     .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
 
@@ -139,6 +142,7 @@ export function computeInsights(
     score: entry.score,
     mood: entry.mood,
     tags: entry.tags || [],
+    ...(entry.is_demo === true ? { isDemo: true } : {}),
   }));
 
   return {

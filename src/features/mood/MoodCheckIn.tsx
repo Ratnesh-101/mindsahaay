@@ -4,6 +4,7 @@ import Icon from "../../shared/ui/Icon";
 import { useMoods, useAddMood, type MoodEntry } from "../../shared/lib/api/moods";
 import { detectRisk } from "../../domain/risk/lexicon";
 import { isDemoModeActive } from "../auth/demoMode";
+import { DemoBadge, DemoDataNotice } from "../demo-data";
 
 const MOOD_OPTIONS = [
   { label: "Rough", score: 2, icon: "◡", color: "var(--danger)" },
@@ -160,6 +161,7 @@ export default function MoodCheckIn() {
       date: new Date(entry.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       score: entry.score,
       mood: entry.mood,
+      isDemo: entry.is_demo === true,
     }));
   }, [allMoods, timeRange]);
 
@@ -368,6 +370,7 @@ export default function MoodCheckIn() {
           </p>
         ) : (
           <div>
+            {chartData.some((d) => d.isDemo) && <DemoDataNotice />}
             <div style={{ width: "100%", height: 260 }} role="img" aria-label={`Mood trend line chart for last ${timeRange} days`}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
@@ -424,7 +427,10 @@ export default function MoodCheckIn() {
                 <tbody>
                   {chartData.map((d, idx) => (
                     <tr key={`${d.date}-${idx}`} style={{ borderBottom: "1px solid var(--line)" }}>
-                      <td style={{ padding: 6 }}>{d.date}</td>
+                      <td style={{ padding: 6 }}>
+                        {d.date}
+                        {d.isDemo && <DemoBadge />}
+                      </td>
                       <td style={{ padding: 6 }}>{d.mood}</td>
                       <td style={{ padding: 6 }}>{d.score}/10</td>
                     </tr>
