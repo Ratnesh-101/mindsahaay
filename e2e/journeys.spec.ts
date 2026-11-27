@@ -3,7 +3,7 @@
 test.describe("demo login", () => {
   test("student demo button leads to the dashboard", async ({ page }) => {
     await page.goto("/login");
-    await page.getByRole("button", { name: /Enter Demo as Student/i }).click();
+    await page.getByRole("button", { name: /Offline preview \(sample data, no account\)/i }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByText(/DEMO MODE ACTIVE/i)).toBeVisible();
   });
@@ -41,6 +41,10 @@ test.describe("consent screen", () => {
     await expect(page.getByRole("alert").filter({ hasText: /18 years/ })).toBeVisible();
 
     await page.getByLabel(/Age Confirmation/i).check();
+    // The alias is no longer pre-filled with an invented name: it is required.
+    await submit.click();
+    await expect(page.getByRole("alert").filter({ hasText: /name or alias/i })).toBeVisible();
+    await page.getByPlaceholder(/preferred name or alias/i).fill("Test Student");
     await submit.click();
     await expect(page).toHaveURL(/\/dashboard$/);
   });
@@ -238,7 +242,7 @@ test.describe("zero-knowledge secure storage & crisis safety card (SEC-03)", () 
 
     // Click Save Safety Plan
     await page.getByRole("button", { name: /Save Safety Plan/i }).click();
-    await expect(page.getByText(/Safety Plan saved securely!/i)).toBeVisible();
+    await expect(page.getByText(/keeps the plan for this tab only/i)).toBeVisible();
 
     // Verify plaintext is NEVER saved to localStorage
     const rawPlaintext = await page.evaluate(() => localStorage.getItem("mindsahaay_demo_safety_plan"));
