@@ -29,11 +29,10 @@ test("crisis follow-through loop: PHQ-9 item 9, counsellor acknowledge, check-ba
     const result = await submitAssessment(sToken, "phq9", [1, 1, 1, 1, 1, 1, 1, 1, 2]);
     expect(result.status).toBeLessThan(300);
     expect(result.json.assessment?.crisis).toBe(true);
-    // NOTE: at the time of writing the server recorded two risk_events for one PHQ-9 (one from the
-    // edge function, one from a DB trigger; see docs/29). The test works on the student's events
-    // as a set so it holds whether or not that duplication is fixed.
+    // One PHQ-9 creates exactly ONE risk event (the database trigger is the single source of truth;
+    // the edge function used to insert a second one, which showed duplicate cards and doubled escalation).
     const sid = lit(student.id);
-    await expect.poll(() => Number(adminSql(`select count(*) from public.risk_events where student_id=${sid}`))).toBeGreaterThanOrEqual(1);
+    await expect.poll(() => Number(adminSql(`select count(*) from public.risk_events where student_id=${sid}`))).toBe(1);
     await expect
       .poll(() => adminSql(`select count(*) from public.risk_events e where student_id=${sid} and not exists (select 1 from public.risk_followups f where f.risk_event_id=e.id and f.step::text='open')`))
       .toBe("0");
