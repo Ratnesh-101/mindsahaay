@@ -112,6 +112,7 @@ function JournalWorkspace() {
   const passphrase = useVaultPassphrase();
   const [entries, setEntries] = useState<DecryptedJournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [mood, setMood] = useState<string>(MOOD_KEYS[0]);
@@ -125,6 +126,7 @@ function JournalWorkspace() {
   const load = useCallback(async () => {
     if (!passphrase) return;
     setLoading(true);
+    setLoadFailed(false);
     try {
       if (isDemoModeActive()) {
         setEntries([...demoEntriesStore]);
@@ -135,6 +137,7 @@ function JournalWorkspace() {
       }
     } catch (err) {
       const code = (err as { code?: string }).code;
+      setLoadFailed(true);
       setError(code === "CRYPTO_DECRYPT_FAILED" ? t("journal.decryptError") : t("journal.loadError"));
     } finally {
       setLoading(false);
@@ -331,12 +334,12 @@ function JournalWorkspace() {
             </div>
             <small>
               {new Date(j.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-              {j.mood ? ` Â· ${j.mood}` : ""}
+              {j.mood ? ` · ${j.mood}` : ""}
             </small>
             <p className="whitespace-pre-wrap">{j.content}</p>
           </article>
         ))}
-        {!loading && entries.length === 0 && <p className="muted py-4">{t("journal.empty")}</p>}
+        {!loading && !loadFailed && entries.length === 0 && <p className="muted py-4">{t("journal.empty")}</p>}
       </section>
     </div>
   );

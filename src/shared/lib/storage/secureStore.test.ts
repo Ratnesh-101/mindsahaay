@@ -28,7 +28,7 @@ describe("secureStore: Encrypted-at-Rest Key-Value Storage", () => {
     sessionStorage.clear();
     clearSecureStoreMemory();
     lockVault();
-    localStorage.setItem("mindsahaay_demo_mode", "true");
+    sessionStorage.setItem("mindsahaay_demo_mode", "true"); // the preview flag is session-scoped
   });
 
   describe("Opaque Key Derivation", () => {
@@ -200,7 +200,7 @@ describe("secureStore: Encrypted-at-Rest Key-Value Storage", () => {
       // Populate app keys in localStorage
       localStorage.setItem("mindsahaay-theme", "dark");
       localStorage.setItem("i18nextLng", "hi");
-      localStorage.setItem("mindsahaay_demo_mode", "true");
+      sessionStorage.setItem("mindsahaay_demo_mode", "true"); // the preview flag is session-scoped
       localStorage.setItem("mindsahaay-habit-streak", "12");
       localStorage.setItem("sb-myproject-auth-token", "jwt.token.value");
       localStorage.setItem(toOpaqueKey("cbt_activities"), "ciphertext-data");

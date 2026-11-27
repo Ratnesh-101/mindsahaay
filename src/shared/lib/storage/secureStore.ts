@@ -165,13 +165,15 @@ export async function setSecureItem<T = unknown>(
   key: string,
   value: T,
   passphraseOverride?: string
-): Promise<{ status: "ok" | "locked" }> {
+): Promise<{ status: "ok" | "locked" | "failed" }> {
   const passphrase = passphraseOverride || getVaultPassphrase();
   if (!passphrase) {
     return { status: "locked" };
   }
 
   const opaqueKey = toOpaqueKey(key);
+  const hadPrevious = memoryCache.has(opaqueKey);
+  const previous = memoryCache.get(opaqueKey);
   memoryCache.set(opaqueKey, value);
 
   try {
@@ -182,7 +184,11 @@ export async function setSecureItem<T = unknown>(
     }
     return { status: "ok" };
   } catch {
-    return { status: "locked" };
+    // Encryption failed or the browser refused the write (quota, private mode). Nothing was stored, so
+    // do not leave the unsaved value in memory looking like saved data.
+    if (hadPrevious) memoryCache.set(opaqueKey, previous);
+    else memoryCache.delete(opaqueKey);
+    return { status: "failed" };
   }
 }
 
@@ -272,11 +278,13 @@ export async function migrateSensitiveStorage(passphrase: string): Promise<void>
   const a3 = localStorage.getItem("mindsahaay-anchor3");
   const friend = localStorage.getItem("mindsahaay-friend");
   if (a1 || a2 || a3 || friend) {
+    // Only what the student actually typed is migrated. Missing fields stay empty so the safety card
+    // falls back to its generic, clearly non-personal defaults instead of invented names or numbers.
     const cardData = {
-      anchor1: a1 || "Ice water on face & wrists + 4-7-8 breathing",
-      anchor2: a2 || "Step outside hostel block to the campus lawn",
-      anchor3: a3 || "Play 432Hz Tibetan Bowl soundscape with eyes closed",
-      trustedFriend: friend || "Kabir (Roommate) · +91 98765 43210",
+      anchor1: a1 || "",
+      anchor2: a2 || "",
+      anchor3: a3 || "",
+      trustedFriend: friend || "",
     };
     try {
       const payload = await encryptJournal(JSON.stringify(cardData), passphrase);

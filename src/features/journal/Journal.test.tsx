@@ -143,7 +143,45 @@ describe("Journal: vault, encryption and entries", () => {
     await user.click(screen.getByRole("tab", { name: "CBT toolkit" }));
     expect(screen.getByRole("tab", { name: "Thought record" })).toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: "Worry time" }));
-    expect(screen.getByText("No worry time set yet.")).toBeInTheDocument();
+    // Worry time is stored encrypted under the vault, so it asks for the vault first.
+    expect(await screen.findByRole("heading", { name: "Create your private vault" })).toBeInTheDocument();
+    expect(await readVaultMeta()).toBeNull();
+  });
+});
+
+describe("Journal: persistence across a reload (U3 audit)", () => {
+  it("after a reload the vault is locked, explains that nothing is lost, and unlocking shows the saved entry", { timeout: 60000 }, async () => {
+    const user = userEvent.setup();
+    const first = render(<Journal studentId="user-1" />);
+    await createVaultThroughUi(user);
+    await user.type(screen.getByLabelText("Your reflection"), "Saved before the reload.");
+    await user.click(screen.getByRole("button", { name: "Save private entry" }));
+    await screen.findByText("Entry encrypted and saved.");
+    first.unmount();
+
+    // Reload: the passphrase lived only in memory.
+    lockVault();
+    render(<Journal studentId="user-1" />);
+    expect(await screen.findByRole("heading", { name: "Unlock your private vault" })).toBeInTheDocument();
+    expect(screen.getByTestId("vault-locked-note")).toHaveTextContent("Nothing has been lost");
+    expect(screen.queryByText(/No journal entries saved yet/)).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Passphrase"), PASS);
+    await user.click(screen.getByRole("button", { name: "Unlock" }));
+    expect(await screen.findByText("Saved before the reload.")).toBeInTheDocument();
+  });
+
+  it("a failed save shows an alert, no success message, and keeps the text for retry", { timeout: 60000 }, async () => {
+    const user = userEvent.setup();
+    render(<Journal studentId="user-1" />);
+    await createVaultThroughUi(user);
+    await user.type(screen.getByLabelText("Your reflection"), "Please keep this text.");
+    fake.signedIn = false;
+    await user.click(screen.getByRole("button", { name: "Save private entry" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("could not save");
+    expect(screen.queryByText("Entry encrypted and saved.")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Your reflection")).toHaveValue("Please keep this text.");
+    expect(fake.tables.journal_entries ?? []).toHaveLength(0);
   });
 });
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 
-const FEATURES = ["journal", "chat", "cbt", "doctors", "community", "counsellor", "admin"];
+const FEATURES = ["journal", "chat", "cbt", "doctors", "community", "counsellor", "admin", "crisis", "consent", "assessment", "modals"];
 const SRC_FEATURES = path.resolve(import.meta.dirname, "..");
 
 function load(feature: string, lng: "en" | "hi"): Record<string, unknown> {
@@ -56,11 +56,19 @@ describe("feature locale bundles", () => {
       for (let i = 1; i <= parts.length; i++) prefixes.add(parts.slice(0, i).join("."));
     });
     const used: { key: string; file: string }[] = [];
-    const dirs = [...FEATURES, "stories", "modals"];
+    // crisis, consent and onboarding also use the global and offline-ui namespaces through a plain t(),
+    // so only their key sets (above) are checked here; their content keys are called via tc().
+    const dirs = [...FEATURES.filter((f) => f !== "crisis" && f !== "consent"), "stories"];
     for (const d of dirs) {
       for (const file of sourceFiles(path.join(SRC_FEATURES, d))) {
         const text = fs.readFileSync(file, "utf8");
         for (const m of text.matchAll(/\bt\(\s*"([A-Za-z0-9_.]+)"/g)) used.push({ key: m[1], file: path.relative(SRC_FEATURES, file) });
+      }
+    }
+    for (const d of ["crisis", "consent", "onboarding", "assessment"]) {
+      for (const file of sourceFiles(path.join(SRC_FEATURES, d))) {
+        const text = fs.readFileSync(file, "utf8");
+        for (const m of text.matchAll(/\btc\(\s*"([A-Za-z0-9_.]+)"/g)) used.push({ key: m[1], file: path.relative(SRC_FEATURES, file) });
       }
     }
     expect(used.length).toBeGreaterThan(100);

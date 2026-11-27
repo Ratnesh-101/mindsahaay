@@ -343,6 +343,9 @@ function UnlockFlow({ meta, mode, onMode, onRecovered }: UnlockProps) {
         {t("vault.unlockTitle")}
       </h2>
       <p className="mt-2 text-sm">{t("vault.unlockIntro")}</p>
+      <p className="mt-2 text-sm" data-testid="vault-locked-note">
+        {t("vault.lockedNote")}
+      </p>
       <div className="mt-4">
         <label htmlFor="vault-input" className={labelClass}>
           {recovery ? t("vault.recoveryLabel") : t("vault.passphraseLabel")}

@@ -16,6 +16,8 @@ export interface FakeState {
   channelHandlers: ((payload: Record<string, unknown>) => void)[];
   removedChannels: number;
   counter: number;
+  /** Every query on these tables returns an error, to test failure paths. */
+  failTables: string[];
 }
 
 export const fake: FakeState = {
@@ -26,6 +28,7 @@ export const fake: FakeState = {
   channelHandlers: [],
   removedChannels: 0,
   counter: 0,
+  failTables: [],
 };
 
 export function resetFake(tables: Record<string, Row[]> = {}, userId = "user-1"): void {
@@ -37,12 +40,14 @@ export function resetFake(tables: Record<string, Row[]> = {}, userId = "user-1")
   fake.channelHandlers = [];
   fake.removedChannels = 0;
   fake.counter = 0;
+  fake.failTables = [];
 }
 
 type Result = { data: unknown; error: { message: string; code?: string } | null };
 
 class Query implements PromiseLike<Result> {
-  private op: "select" | "insert" | "update" | "delete" = "select";
+  private op: "select" | "insert" | "update" | "delete" | "upsert" = "select";
+  private conflict = "id";
   private filters: ((r: Row) => boolean)[] = [];
   private payload: Row | null = null;
   private orderBy: { col: string; asc: boolean } | null = null;
@@ -53,13 +58,20 @@ class Query implements PromiseLike<Result> {
   constructor(private table: string) {}
 
   select(_cols?: string): this {
-    if (this.op === "insert" || this.op === "update") this.returning = true;
+    if (this.op === "insert" || this.op === "update" || this.op === "upsert") this.returning = true;
     else this.op = "select";
     return this;
   }
   insert(row: Row): this {
     this.op = "insert";
     this.payload = row;
+    return this;
+  }
+  /** Insert, or replace the row whose onConflict column matches (default "id"). */
+  upsert(row: Row, opts?: { onConflict?: string }): this {
+    this.op = "upsert";
+    this.payload = row;
+    this.conflict = opts?.onConflict ?? "id";
     return this;
   }
   update(patch: Row): this {
@@ -106,7 +118,21 @@ class Query implements PromiseLike<Result> {
   }
 
   private run(): Result {
+    if (fake.failTables.includes(this.table)) {
+      return { data: null, error: { message: `simulated failure on ${this.table}`, code: "TEST_FAIL" } };
+    }
     const rows = (fake.tables[this.table] ??= []);
+    if (this.op === "upsert") {
+      const key = this.conflict;
+      const existing = rows.find((r) => this.payload && r[key] === this.payload[key]);
+      if (existing) {
+        Object.assign(existing, this.payload);
+        return { data: this.returning ? [existing] : null, error: null };
+      }
+      const row: Row = { id: `${this.table}-${++fake.counter}`, created_at: new Date(2026, 0, 1, 0, 0, fake.counter).toISOString(), ...this.payload };
+      rows.push(row);
+      return { data: this.returning ? [row] : null, error: null };
+    }
     if (this.op === "insert") {
       const row: Row = {
         id: `${this.table}-${++fake.counter}`,

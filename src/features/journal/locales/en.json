@@ -87,6 +87,7 @@
     "recoveredTitle": "Vault unlocked with your recovery code",
     "recoveredNote": "Your passphrase was recovered. Show it once and write it down.",
     "showPassphrase": "Show passphrase",
-    "hidePassphrase": "Hide passphrase"
+    "hidePassphrase": "Hide passphrase",
+    "lockedNote": "Your saved entries and records are still stored safely. After a reload, a new tab or a lock they stay hidden until you enter your passphrase. Nothing has been lost."
   }
 }
