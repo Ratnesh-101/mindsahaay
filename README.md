@@ -8,9 +8,9 @@ Stack: React 19, Vite, Tailwind CSS v4, TypeScript, Supabase (Auth, Postgres wit
 
 ## Honest status
 
-Last updated 2026-11-20. Full detail is in [docs/02-srs.md](docs/02-srs.md) (traceability matrix) and [docs/19-known-limitations.md](docs/19-known-limitations.md).
+Last updated 2026-11-27 (demo-data and persistence change set, docs/31 and docs/32). Full detail is in [docs/02-srs.md](docs/02-srs.md) (traceability matrix) and [docs/19-known-limitations.md](docs/19-known-limitations.md).
 
-Quality gates (2026-11-20, all measured by the lead): 0 TypeScript errors; 0 ESLint errors and 0 warnings on `src`; **Vitest: 71 files passed and 1 skipped, 818 tests passed and 1 skipped** (the skipped one is the live smoke test that needs tokens); coverage statements 88.62%, branches 80.56%, functions 86.44%, lines 90.61% (scope `src/domain` and `src/features`; thresholds in `vitest.config.ts` are enforced). **Playwright, default run (`npx playwright test`): 102 passed**, Chromium only: 93 in the `chromium` project (57 axe accessibility combinations = 14 routes x light/dark x 1280 px/375 px with zero serious or critical violations, plus journeys, smoke and offline-UI specs) and 9 in the `pwa` project. **Real-backend Playwright (`pnpm test:e2e:real`, needs the local Supabase stack): 5 passed** (sign-in and route sweep, the crisis follow-through loop with security attempts, offline mood and crisis outbox, a shared-device case); two consecutive green runs by a worker and one by the lead. **pgTAP on a real local Postgres (Supabase CLI, Docker): 14 files, 146 tests, all passing.** Production build green; first route about 190.9 KB gzipped (budget 200 KB). Lighthouse and OWASP ZAP have **not** been run. Firefox, WebKit and real-device PWA install are **not** tested. Hosted Supabase, the Anthropic chat route and Daily.co video are **not verified**. Requirements matrix (`node scripts/req-status.mjs`): Implemented 3, Partial 60, Not started 9 of 72.
+Quality gates (2026-11-27): 0 TypeScript errors; 0 ESLint errors and 0 warnings on `src`; **Vitest: 80 files passed and 1 skipped (81), 910 tests passed and 1 skipped** (the skipped one is the live smoke test that needs tokens); coverage statements 90.02%, branches 82.22%, functions 87.34%, lines 91.99% (scope `src/domain` and `src/features`; thresholds in `vitest.config.ts` are enforced). **Playwright, default run (`npx playwright test`): 102 passed**, Chromium only: 93 in the `chromium` project (57 axe accessibility combinations = 14 routes x light/dark x 1280 px/375 px with zero serious or critical violations, plus journeys, smoke and offline-UI specs) and 9 in the `pwa` project. **Real-backend Playwright (`pnpm test:e2e:real`, needs the local Supabase stack): 10 passed** before the demo-data specs were added (more specs are being added, see `e2e/real`; covering sign-in and route sweep, the crisis follow-through loop with security attempts, offline mood and crisis outbox, a shared-device case); two consecutive green runs by a worker and one by the lead. **pgTAP on a real local Postgres (Supabase CLI, Docker): 15 files, 184 tests, all passing** (migrations 0001 to 0009). Production build green; first route about 190.9 KB gzipped (budget 200 KB). Lighthouse and OWASP ZAP have **not** been run. Firefox, WebKit and real-device PWA install are **not** tested. Hosted Supabase, the Anthropic chat route and Daily.co video are **not verified**. Requirements matrix (`node scripts/req-status.mjs`): Implemented 3, Partial 65, Not started 9 of 77.
 
 **Two features were chosen by an AI "courtroom tournament"** (six AI advocate agents, one AI judge, two elimination rounds, rubric weights 30/20/20/20/10) and then built: the **Crisis Follow-Through Loop** and **Lifeline Offline**. The full record is [docs/30-feature-selection-tournament.md](docs/30-feature-selection-tournament.md).
 
@@ -20,6 +20,7 @@ Quality gates (2026-11-20, all measured by the lead): 0 TypeScript errors; 0 ESL
 |---|---|
 | Sign-in (magic link, Google SSO), onboarding with per-purpose consent | Implemented. Magic-link sign-in was checked against a local Supabase (through the local mail catcher it lands on `/dashboard` with no console errors). Google SSO untested. No password sign-in. The 18+ checkbox is a client-side gate and is not stored in the schema |
 | Mood check-in with crisis check on notes | Implemented (1 to 10 scale; no edit or delete in the client) |
+| Demo data button, no fabricated data, real data is saved ([docs/31](docs/31-demo-data.md), [docs/32](docs/32-persistence-audit.md), migration 0009) | Built. A new account shows empty states with real zeros. Settings > Load demo data inserts about 30 days of sample check-ins and 3 sample screenings into the user's own account, flagged `is_demo` and labelled Demo; Clear demo data removes only those rows. Demo rows are hidden from counsellors, excluded from institution aggregates and never raise a crisis event (pgTAP file 15, 38 tests, local Supabase). About 15 save flows were fixed so success is shown only after a confirmed write. **Open owner decisions:** chat conversations are not saved, stories have no likes table, CBT, worry-time and safety-card anchors are device-only, and the Settings export still reads `localStorage`. See [docs/19](docs/19-known-limitations.md) L54 to L59. Browser-level checks: see `e2e/real` |
 | PHQ-4, PHQ-9, GAD-7 with educational disclaimers; PHQ-9 item 9 triggers the crisis card | Implemented and unit tested |
 | Multilingual crisis lexicon (English, Hindi, Hinglish) | Implemented. Heldout recall 0.70 on synthetic data, below the 0.95 target. The server copy is generated from the client lexicon (`scripts/sync-lexicon.mjs`) and agrees with it on all 600 dataset rows |
 | LLM risk classification and hybrid crisis detection | Code written, **not evaluated** (LLM-only and hybrid results pending an API key; the scripts were verified against a mock server only) |
@@ -29,7 +30,7 @@ Quality gates (2026-11-20, all measured by the lead): 0 TypeScript errors; 0 ESL
 | Counsellor directory, booking, cancellation, video token | Directory and slots show real seeded data from a local database (manual browser check). Booking concurrency not exercised. Daily.co video tokens **not verified** (need `DAILY_API_KEY`) |
 | Peer circles, posting, reporting, moderator queue | Implemented in components; RLS covered by local pgTAP |
 | Counsellor, moderator and admin portals at `/counsellor`, `/moderator`, `/admin` | In demo mode these are **static sample pages**. For a real session `/counsellor` and `/admin` mount the API-backed dashboards and `/moderator` still renders `ModeratorPortal`. Not checked with live data |
-| Database: 28 tables, RLS on all, triggers, k-anonymity views (k = 10), 8 migrations, 14 pgTAP files | **Executed on a local Supabase** (CLI 3.2.0, Docker): migrations 0001 to 0008 and seed apply, 146 pgTAP tests pass (files 01 to 14). Running it found defects the earlier read-only audit missed (docs/21). **Hosted Supabase has not been tried** |
+| Database: 28 tables, RLS on all, triggers, k-anonymity views (k = 10), 9 migrations, 15 pgTAP files | **Executed on a local Supabase** (CLI 3.2.0, Docker): migrations 0001 to 0009 and seed apply, 184 pgTAP tests pass (files 01 to 15). Running it found defects the earlier read-only audit missed (docs/21). **Hosted Supabase has not been tried** |
 | Edge function (Hono on Deno) | Runs on the real Supabase edge runtime. Verified with real JWTs: sign-up creates a profile with an alias; PHQ-9 item 9 = 2 stores the assessment and creates a crisis risk event with helplines; the anon key alone gets 401; the export IDOR is closed. `pg_cron` not verified |
 | Accessibility | Axe: 57 of 57 combinations pass. No manual keyboard, NVDA or real-device audit; Chromium only |
 | Performance | First route about 190.9 KB gzipped (budget 200 KB). **Lighthouse not run**, no load test |
@@ -40,7 +41,7 @@ Quality gates (2026-11-20, all measured by the lead): 0 TypeScript errors; 0 ESL
 | CI (`.github/workflows`, 5 workflows) | **Never run on a real runner.** The project is not in a git repository yet |
 | Hosted deployment (Supabase, Vercel) | **Not done** |
 
-Tests: see the quality gates above for exact figures (818 Vitest tests, 102 default Playwright tests plus 5 real-backend tests, 146 pgTAP tests, all passing locally). See [docs/18-testing-report.md](docs/18-testing-report.md).
+Tests: see the quality gates above for exact figures (910 Vitest tests, 102 default Playwright tests plus the real-backend tests in `e2e/real`, 184 pgTAP tests, all passing locally). See [docs/18-testing-report.md](docs/18-testing-report.md).
 
 ## Architecture
 
@@ -127,7 +128,7 @@ Backend setup, secrets (`ANTHROPIC_API_KEY`, `DAILY_API_KEY`, `ALLOWED_ORIGINS`)
 | `node scripts/eval-llm.ts` | LLM-only evaluation (needs `ANTHROPIC_API_KEY`, about 600 API calls) |
 | `node scripts/eval-hybrid.ts --reuse-llm` | Hybrid evaluation (needs the key and `llm.json`) |
 | `node scripts/eval-report.ts` | Merge results into `eval/results/comparison.md` |
-| `supabase test db` | Run pgTAP tests (needs Supabase CLI, Docker and `supabase start`; 146 tests in 14 files pass locally) |
+| `supabase test db` | Run pgTAP tests (needs Supabase CLI, Docker and `supabase start`; 184 tests in 15 files pass locally) |
 | `node scripts/sync-lexicon.mjs` (`pnpm sync:lexicon`) | Regenerate the server lexicon from `src/domain/risk/lexicon.ts` |
 | `node scripts/req-status.mjs` | Check the requirements traceability matrix in `docs/02-srs.md` |
 
@@ -145,10 +146,10 @@ src/
   shared/                    api client functions, supabase client, ui components
   locales/                   English and Hindi strings
 supabase/
-  migrations/                0001 to 0008 (28 tables, RLS, triggers, functions, follow-up loop, handoff, security fixes, realtime publication)
+  migrations/                0001 to 0009 (28 tables, RLS, triggers, functions, follow-up loop, handoff, security fixes, realtime publication, demo data)
   functions/server/          Edge Function (Hono, Deno)
   functions/_shared/         lexicon, PII redaction, types
-  tests/                     14 pgTAP files
+  tests/                     15 pgTAP files
   seed.sql                   synthetic demo data
   openapi.yaml               API description
 eval/                        crisis dataset, dev/heldout split, results
@@ -175,6 +176,7 @@ Start at the index: [docs/00-README.md](docs/00-README.md).
 | [21](docs/21-sql-audit.md), [22](docs/22-edge-function-tests.md), [23](docs/23-frontend-security-audit.md) | SQL audit and local execution, edge function tests, frontend security audit |
 | [24](docs/24-crisis-followup.md), [25](docs/25-offline-pwa.md), [26](docs/26-pwa-shell.md), [27](docs/27-hindi-review.md) | Crisis follow-through loop, offline outbox, PWA shell, Hindi review |
 | [28](docs/28-new-features-security-review.md), [29](docs/29-real-backend-e2e.md), [30](docs/30-feature-selection-tournament.md) | Independent security review, real-backend end-to-end tests, feature-selection tournament |
+| [31](docs/31-demo-data.md), [32](docs/32-persistence-audit.md) | Demo data contract, persistence audit |
 
 ## Privacy approach
 

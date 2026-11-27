@@ -2,18 +2,18 @@
 
 Date of runs: 2026-11-20 (earlier figures from 2026-11-18 and 2026-11-19 are marked as such). Final reconciliation on 2026-11-20 after the Crisis Follow-Through Loop (docs/24), Lifeline Offline (docs/25, 26), the independent review fixes (docs/28) and the real-backend suite (docs/29). The headline figures below were measured by the lead at the end of the day; per-area coverage and a few details were measured earlier and are marked. Machine: Windows, Node from the WinGet OpenJS package, project at the repository root. Nothing was estimated.
 
-## 0. Quality gates at a glance (2026-11-20)
+## 0. Quality gates at a glance (2026-11-27, after the demo-data and persistence change set)
 
 | Gate | Result |
 |---|---|
 | TypeScript (`pnpm typecheck`) | 0 errors |
 | ESLint (`npx eslint src`) | 0 errors, 0 warnings (final run 2026-11-20; worker G5 had removed 19 warnings in test files earlier) |
-| Vitest unit and integration tests | **818 passed, 1 skipped** in 72 files (71 files passed, 1 skipped). The skipped test is the live smoke test `smoke.local.test.ts`, which needs JWT tokens. 0 failed |
-| Playwright end to end and accessibility (Chromium) | **102 passed** with `npx playwright test`: 93 in the `chromium` project (57 axe combinations plus journeys, smoke and offline-UI specs; demo mode) and 9 in the `pwa` project (production build) |
+| Vitest unit and integration tests | **910 passed, 1 skipped** in 81 files (80 files passed, 1 skipped). The skipped test is the live smoke test `smoke.local.test.ts`, which needs JWT tokens. 0 failed |
+| Playwright end to end and accessibility (Chromium) | **102 passed** (102/102 re-run 2026-11-27) with `npx playwright test`: 93 in the `chromium` project (57 axe combinations plus journeys, smoke and offline-UI specs; demo mode) and 9 in the `pwa` project (production build) |
 | Axe accessibility | 14 routes x light/dark x 1280px/375px = 57 combinations tested; serious and critical violations: **0** |
-| Line coverage (Vitest, V8) | **Lines 90.61%**, statements 88.62%, branches 80.56%, functions 86.44% (over the configured scope, see 1.3). The thresholds in `vitest.config.ts` are enforced and pass |
-| pgTAP database tests | **14 files, 146 tests, all passing** on a local Supabase (CLI 3.2.0, Docker), migrations 0001 to 0008. Hosted Supabase not tried |
-| Real-backend browser checks (`pnpm test:e2e:real`, Chromium, local Supabase) | **5 passed**: sign-in and route sweep, crisis follow-through loop with security attempts, offline mood and crisis outbox, shared-device case. Two consecutive green runs by the worker and one by the lead. Details in section 6 and docs/29 |
+| Line coverage (Vitest, V8) | **Lines 91.99%**, statements 90.02%, branches 82.22%, functions 87.34% (over the configured scope, see 1.3). The thresholds in `vitest.config.ts` are enforced and pass |
+| pgTAP database tests | **15 files, 184 tests, all passing** on a local Supabase (CLI 3.2.0, Docker), migrations 0001 to 0009. Hosted Supabase not tried |
+| Real-backend browser checks (`pnpm test:e2e:real`, Chromium, local Supabase) | **10 passed** before the demo-data specs were added; more specs are being added in `e2e/real` and no final count is stated here. The earlier five covered sign-in and route sweep, crisis follow-through loop, offline mood and crisis outbox, shared-device case. Details in section 6 and docs/29 |
 
 What these gates do **not** show: anything about a hosted deployment, the Claude and Daily.co routes, performance under load, Lighthouse scores, OWASP ZAP results, browsers other than Chromium, installation or offline use on a real phone, or any real user.
 
@@ -27,26 +27,26 @@ npx vitest run --coverage
 
 (`pnpm test:cov` runs the same thing.) Vitest 5.1.1, V8 coverage, jsdom environment.
 
-### 1.2 Result (final, 2026-11-20)
+### 1.2 Result (final, 2026-11-27)
 
 | Measure | Value |
 |---|---|
-| Test files | 71 passed, 1 skipped (72) |
-| Tests | **818 passed, 1 skipped (819), 0 failed** |
+| Test files | 80 passed, 1 skipped (81) |
+| Tests | **910 passed, 1 skipped (911), 0 failed** |
 | Duration | TODO (not recorded in the final run) |
 
 The count includes `supabase/functions/**/*.test.ts` (188 edge-function tests, re-counted 2026-11-20). These run in Node against mocks; separately, the edge function was exercised on the real Deno edge runtime, see section 6 and doc 22. The earlier figures of 345, 363, 553, 562, 724 and 795 tests are superseded; the 795-test run had 13 failures in `FollowUp.test.tsx` while the G6-SEC-05 wording fix was being written, and they were fixed.
 
 One harmless message appears during the run: `Not implemented: navigation to another Document` (jsdom does not implement page navigation; the exact test that triggers it was not identified). It is not a failure.
 
-### 1.3 Coverage summary (final, 2026-11-20)
+### 1.3 Coverage summary (final, 2026-11-27)
 
 | Metric | Value |
 |---|---:|
-| Statements | 88.62% |
-| Branches | 80.56% |
-| Functions | 86.44% |
-| Lines | 90.61% |
+| Statements | 90.02% |
+| Branches | 82.22% |
+| Functions | 87.34% |
+| Lines | 91.99% |
 
 The thresholds in `vitest.config.ts` are enforced and pass.
 
@@ -88,13 +88,13 @@ Targets in NFR-QUAL-01: lines at least 80% overall (**met**, within the measured
 
 ### 1.5 Test inventory
 
-The per-file counts of the earlier 345-test run are stale and have been removed. The suite now has 818 passing tests (1 skipped) in 72 files. Run `npx vitest run --reporter=verbose` for the current per-file list. Main groups: domain (lexicon v1 and v2, scoring, routing, crypto), feature components, shared API client modules, the secure local store (`src/shared/lib/storage/secureStore.test.ts`), the edge function (`supabase/functions/**`, 188 tests), and the new groups listed in 10-test-plan.md section 3.1 (risk queue and student card, outbox and hooks, PWA cache version and helplines, offline UI).
+The per-file counts of the earlier 345-test run are stale and have been removed. The suite now has 910 passing tests (1 skipped) in 81 files. Run `npx vitest run --reporter=verbose` for the current per-file list. Main groups: domain (lexicon v1 and v2, scoring, routing, crypto), feature components, shared API client modules, the secure local store (`src/shared/lib/storage/secureStore.test.ts`), the edge function (`supabase/functions/**`, 188 tests), and the new groups listed in 10-test-plan.md section 3.1 (risk queue and student card, outbox and hooks, PWA cache version and helplines, offline UI).
 
 Everything in Vitest is unit or component level with mocked network calls (MSW and Vitest mocks). **No Vitest test talks to a real Supabase, Postgres, Edge Function or Claude API.** Real-backend evidence comes from pgTAP (section 2) and the manual checks in section 6.
 
 ## 2. pgTAP database tests (executed 2026-11-19 and 2026-11-20)
 
-On a local Supabase (`supabase start`, CLI 3.2.0, Docker): migrations 0001 to 0008 and `seed.sql` apply, 28 tables exist with RLS enabled on all of them, and the 14 files `supabase/tests/01` to `14` pass: **146 tests, 0 failed** (`npx --yes supabase test db`). Per file (plan counts): 01 12, 02 6, 03 5, 04 7, 05 4, 06 13, 07 10, 08 15, 09 15, 10 14, 11 22, 12 9, 13 10, 14 4. Files 12 and 13 (19 tests) are regression tests for the independent review (docs/28), written before migration 0007 and failing first (6 and 9 failures on the pre-fix schema); they pass now. File 14 checks that migration 0008 puts `risk_events`, `risk_followups` and `notifications` in the realtime publication.
+On a local Supabase (`supabase start`, CLI 3.2.0, Docker): migrations 0001 to 0009 and `seed.sql` apply, 28 tables exist with RLS enabled on all of them, and the 15 files `supabase/tests/01` to `15` pass: **184 tests, 0 failed** (2026-11-27; the 146 tests of files 01 to 14 plus the 38 of file 15) (`npx --yes supabase test db`). Per file (plan counts): 01 12, 02 6, 03 5, 04 7, 05 4, 06 13, 07 10, 08 15, 09 15, 10 14, 11 22, 12 9, 13 10, 14 4, 15 38. Files 12 and 13 (19 tests) are regression tests for the independent review (docs/28), written before migration 0007 and failing first (6 and 9 failures on the pre-fix schema); they pass now. File 14 checks that migration 0008 puts `risk_events`, `risk_followups` and `notifications` in the realtime publication.
 
 The three files added with the follow-up loop (08 to 10, 44 tests) cover: the first `open` step for high and crisis events only; every illegal step jump refused; closure reasons; the event marked resolved only on `closed`; h24 and h72 prompts created on `acknowledged`; a student cannot update or resolve their own event (the old hole, TH-21); a counsellor with a care share can; cross-user isolation of follow-ups, prompts and answers; a counsellor without a share cannot call `advance_risk_followup`; answers are append-only and one per prompt; a "want to talk" answer reopens and notifies; an offline event with a past `created_at` gets the server time; level 1 and level 2 escalation with idempotency, generic text and audit rows; `risk_queue` filtering. File 11 (`11_warm_handoff_and_optout.test.sql`, 22 tests) covers migration 0006: server-side check-back opt-out (a student cannot change another student's flag or their own role through it; counsellors are refused), and the warm handoff (offer only by a counsellor with a current care share and only of their own future unbooked slot; duplicate offers refused; accept books once; replay and decline-after-accept refused; another student cannot accept the offer). The pgTAP assertions that are not listed here were not read line by line by the documentation worker.
 
@@ -183,7 +183,7 @@ Raw outputs of the lead's earlier throwaway scripts are not stored in the reposi
 - **Security attempts.** A student's direct PATCH of their own risk event changed 0 rows and the event stayed unresolved (the TH-21 hole). A student's PATCH of their own check-back answer changed nothing. Both attempts are now automated in `crisis-followup.spec.ts` (section 6.2).
 - **Shared device.** Unit level: student A's queued rows are skipped and cannot be decrypted by student B (Vitest with fake IndexedDB). The `real` suite now has a shared-device case in a real browser (section 6.2).
 
-### 6.2 Real-backend verifications (`pnpm test:e2e:real`, 5 passed)
+### 6.2 Real-backend verifications (`pnpm test:e2e:real`, 5 passed on 2026-11-20, 10 passed before the demo-data specs)
 
 The `real` Playwright project runs Chromium against the local Supabase stack with a non-demo build (docs/29). Final result: **5 passed**, two consecutive green runs by the worker (69 s and 71 s wall time, 0 flaky, 0 retries) and one by the lead. The five tests are in four spec files:
 
@@ -218,6 +218,15 @@ Mutation sanity check (worker G5): three safety-critical lines were broken by ha
 
 **Still not run:** Lighthouse, OWASP ZAP, a dependency audit, a hosted deployment, a real-device PWA install and offline test (Android or iOS), any browser other than desktop Chromium, the LLM evaluation, any user study.
 
+### 6.4 Demo-data and persistence tests (2026-11-27)
+
+Evidence for the change set described in docs/31 and docs/32:
+
+- **pgTAP file `15_demo_data.test.sql`, 38 tests.** Covers the demo-data contract in docs/31: `load_demo_data()` inserts sample rows with `is_demo = true` and does not duplicate on a second call, `clear_demo_data()` removes only demo rows, counsellors with a care share do not see demo rows, institution aggregates exclude them, and loading creates no risk event, follow-up or crisis audit entry (demo PHQ-9 item 9 is always 0).
+- **Vitest, demo-data feature** (`src/features/demo-data`): panel, API and locale tests.
+- **Vitest, persistence flows**: reload and unlock tests for the journal, thought records and counsellor session notes; failed-save tests that keep what was typed and show no success message (journal, thought record, CBT, safety plan, consent, post report, appointment booking and cancel; chat restores an unsent message); dashboard and insights tests that the old invented values are gone. `fake.failTables` in `src/features/journal/testSupport.ts` simulates a backend refusal.
+- **Not covered here:** the real-backend browser specs for these behaviours are in `e2e/real` (`fresh-account`, `demo-data`, `persistence`, `preview-flag`): 24 real-backend specs in total, all passing on 2026-11-27 against the local Supabase stack. The offline-preview flag in `sessionStorage` is also covered by `e2e/real/preview-flag.spec.ts`. Nothing was run against a hosted Supabase.
+
 ## 7. Gaps in the test suite worth fixing
 
 1. Requirement IDs are not in test names, so the matrix in 02-srs.md section 6 was built by hand.
@@ -230,6 +239,7 @@ Mutation sanity check (worker G5): three safety-critical lines were broken by ha
 8. No test exercises Background Sync, because the service worker has no `sync` handler.
 9. No automated test calls `advance_risk_followup` or `escalate_overdue_risk` concurrently.
 10. The account-erasure path against the offline outbox (L49, now closed) is covered by unit tests only; the `real` suite does not run the erase flow in a browser.
+11. The real-backend specs for demo data and persistence (fresh account, load and clear, counsellor invisibility, reload persistence) are in `e2e/real` and passed on 2026-11-27 (24 of 24 real-backend specs), alongside pgTAP file 15 and Vitest.
 
 ## 8. How to reproduce
 
