@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import "../crisis/i18n";
+import { CONTENT_NS } from "../journal/registerBundle";
 import Icon from "../../shared/ui/Icon";
 import Modal from "../../shared/ui/Modal";
 import { useVaultPassphrase } from "../journal/vault";
 import VaultGate from "../journal/VaultGate";
 import {
   getSecureItemSync,
-  setSecureItemSync,
+  setSecureItem,
 } from "../../shared/lib/storage/secureStore";
 
 interface SafetyCardModalProps {
@@ -26,6 +29,7 @@ const GENERIC_ANCHOR_3 = "Play 432Hz Tibetan Bowl soundscape with eyes closed";
 const GENERIC_FRIEND = "Campus Counsellor / Peer Support";
 
 export default function SafetyCardModal({ student, onClose }: SafetyCardModalProps) {
+  const { t } = useTranslation(CONTENT_NS);
   const passphrase = useVaultPassphrase();
   const isUnlocked = Boolean(passphrase);
 
@@ -37,6 +41,8 @@ export default function SafetyCardModal({ student, onClose }: SafetyCardModalPro
   const [anchor3, setAnchor3] = useState(GENERIC_ANCHOR_3);
   const [trustedFriend, setTrustedFriend] = useState(GENERIC_FRIEND);
   const [saved, setSaved] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // Synchronize with secureStore when vault is unlocked
   useEffect(() => {
@@ -46,7 +52,7 @@ export default function SafetyCardModal({ student, onClose }: SafetyCardModalPro
         setAnchor1(cached.value.anchor1 || GENERIC_ANCHOR_1);
         setAnchor2(cached.value.anchor2 || GENERIC_ANCHOR_2);
         setAnchor3(cached.value.anchor3 || GENERIC_ANCHOR_3);
-        setTrustedFriend(cached.value.trustedFriend || "Kabir (Roommate) · +91 98765 43210");
+        setTrustedFriend(cached.value.trustedFriend || GENERIC_FRIEND);
       }
     } else {
       // Revert to generic safe defaults when locked
@@ -57,15 +63,24 @@ export default function SafetyCardModal({ student, onClose }: SafetyCardModalPro
     }
   }, [isUnlocked]);
 
-  const handleSave = () => {
-    if (!isUnlocked) return;
+  const handleSave = async () => {
+    if (!isUnlocked || saving) return;
     const cardData: SafetyCardData = {
       anchor1,
       anchor2,
       anchor3,
       trustedFriend,
     };
-    setSecureItemSync("safety_card", cardData);
+    setSaving(true);
+    setSaved(false);
+    setSaveFailed(false);
+    // setSecureItem resolves "ok" only after the encrypted copy was really written to this device.
+    const result = await setSecureItem("safety_card", cardData);
+    setSaving(false);
+    if (result.status !== "ok") {
+      setSaveFailed(true);
+      return;
+    }
 
     // Purge legacy plaintext keys from localStorage
     try {
@@ -78,7 +93,7 @@ export default function SafetyCardModal({ student, onClose }: SafetyCardModalPro
     }
 
     setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setTimeout(() => setSaved(false), 6000);
   };
 
   const handlePrint = () => {
@@ -182,6 +197,7 @@ export default function SafetyCardModal({ student, onClose }: SafetyCardModalPro
       ) : (
         <div className="safety-card-form">
           <span className="eyebrow green">CUSTOMIZE YOUR PERSONAL ANCHORS</span>
+          <p className="muted" style={{ fontSize: 12 }}>{t("safetyCard.deviceOnly")}</p>
           <div className="field-group">
             <label className="field-label" htmlFor="a1">Anchor 1 (Somatic / Physical Shock)</label>
             <input id="a1" value={anchor1} onChange={(e) => setAnchor1(e.target.value)} placeholder="e.g. Ice water on face + 4-7-8 breathing" />
@@ -203,14 +219,22 @@ export default function SafetyCardModal({ student, onClose }: SafetyCardModalPro
 
       <div className="safety-actions-row">
         {isUnlocked && (
-          <button type="button" className="primary-btn" onClick={handleSave}>
-            <Icon name="check" size={16} /> {saved ? "Saved to Card!" : "Save Anchors"}
+          <button type="button" className="primary-btn" onClick={() => void handleSave()} disabled={saving}>
+            <Icon name="check" size={16} /> {saving ? "Saving…" : "Save Anchors"}
           </button>
         )}
         <button type="button" className="outline-btn" onClick={handlePrint}>
           <Icon name="download" size={16} /> Print Wallet Card
         </button>
       </div>
+      <p role="status" aria-live="polite" className={saved ? "saved-label" : "sr-only"}>
+        {saved ? `✓ ${t("safetyCard.saved")}` : ""}
+      </p>
+      {saveFailed && (
+        <p role="alert" style={{ color: "var(--danger)", fontWeight: 600 }}>
+          {t("safetyCard.saveError")}
+        </p>
+      )}
     </Modal>
   );
 }

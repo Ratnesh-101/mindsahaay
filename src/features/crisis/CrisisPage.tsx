@@ -1,88 +1,161 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import Icon from "../../shared/ui/Icon";
 import { useOnlineStatus } from "../../shared/lib/offline";
 import { HELPLINES_LAST_VERIFIED } from "../../shared/lib/pwa/helplines";
 import { OFFLINE_UI_NS, formatVerifiedDate } from "../offline-ui/i18n";
 import {
-  useSafetyPlan,
-  useUpdateSafetyPlan,
+  fetchSafetyPlan,
+  saveSafetyPlan,
   type SafetyPlan,
   type EmergencyContact,
 } from "../../shared/lib/api/safetyPlan";
 import { isDemoModeActive } from "../auth/demoMode";
 import { getVaultPassphrase } from "../journal/vault";
+import { CONTENT_NS } from "../journal/registerBundle";
+import "./i18n";
 import {
   getSecureItemSync,
   setSecureItem,
   setMemoryCacheItem,
 } from "../../shared/lib/storage/secureStore";
 
-const DEFAULT_SAFETY_PLAN: SafetyPlan = {
-  warningSigns: [
-    "Unable to sleep past 2:00 AM with racing worries",
-    "Feeling sudden urge to isolate in hostel room",
-    "Skipping meals and avoiding friends",
-  ],
-  copingStrategies: [
-    "Ice water splash on face & wrists + 4-7-8 breathing",
-    "Step outside hostel block to the campus lawn",
-    "Play 432Hz Singing Bowl soundscape with eyes closed",
-  ],
-  emergencyContacts: [
-    { name: "Kabir Sharma", relationship: "Hostel Roommate", phone: "+91 98765 43210" },
-    { name: "Priya", relationship: "Sister", phone: "+91 98123 45678" },
-  ],
-  safeEnvironments: [
-    "Campus library reading hall (quiet & populated)",
-    "Student recreation lounge",
-    "Hostel open terrace during daylight",
-  ],
-  reasonsToLive: [
-    "Finishing my degree and building my software career",
-    "My family and friends who care deeply about me",
-    "Future travels and experiences I have not lived yet",
-  ],
+/**
+ * A brand-new plan is EMPTY: every list starts with one blank row for the student to fill in.
+ * The two national helplines are fixed public numbers, not personal data. Nothing here is a
+ * placeholder person, place or reason, so a real student never sees invented content as their own plan.
+ */
+const EMPTY_SAFETY_PLAN: SafetyPlan = {
+  warningSigns: [""],
+  copingStrategies: [""],
+  emergencyContacts: [{ name: "", relationship: "", phone: "" }],
+  safeEnvironments: [],
+  reasonsToLive: [""],
   professionalSupport: [
     { name: "Tele-MANAS (Govt of India)", role: "24/7 Crisis Helpline", phone: "14416" },
     { name: "KIRAN Mental Health", role: "24/7 National Helpline", phone: "1800-599-0019" },
-    { name: "Dr. Ananya Sharma", role: "Campus Psychologist", phone: "+91 98000 11222" },
   ],
   isEncrypted: false,
 };
 
+/** Makes sure every editable list has at least one blank row to type into. */
+function withEditableRows(plan: SafetyPlan): SafetyPlan {
+  return {
+    ...plan,
+    warningSigns: plan.warningSigns.length ? plan.warningSigns : [""],
+    copingStrategies: plan.copingStrategies.length ? plan.copingStrategies : [""],
+    emergencyContacts: plan.emergencyContacts.length ? plan.emergencyContacts : [{ name: "", relationship: "", phone: "" }],
+    reasonsToLive: plan.reasonsToLive.length ? plan.reasonsToLive : [""],
+  };
+}
+
+/** Drops blank rows before saving, so empty inputs are never stored as content. */
+function withoutBlankRows(plan: SafetyPlan): SafetyPlan {
+  const text = (list: string[]) => list.map((s) => s.trim()).filter(Boolean);
+  return {
+    ...plan,
+    warningSigns: text(plan.warningSigns),
+    copingStrategies: text(plan.copingStrategies),
+    reasonsToLive: text(plan.reasonsToLive),
+    emergencyContacts: plan.emergencyContacts.filter((c) => c.name.trim() || c.phone.trim() || c.relationship.trim()),
+  };
+}
+
+/** True while the student has not written anything yet, so the page can say nothing is saved. */
+function isPlanBlank(plan: SafetyPlan): boolean {
+  const stripped = withoutBlankRows(plan);
+  return (
+    stripped.warningSigns.length === 0 &&
+    stripped.copingStrategies.length === 0 &&
+    stripped.reasonsToLive.length === 0 &&
+    stripped.emergencyContacts.length === 0
+  );
+}
+
+type PlanLoad = "loading" | "ready" | "locked" | "error";
+type Notice = { kind: "ok" | "error"; text: string } | null;
+
 export default function CrisisPage() {
   const { t, i18n } = useTranslation(OFFLINE_UI_NS);
+  const { t: tc } = useTranslation(CONTENT_NS);
   const online = useOnlineStatus();
+  const queryClient = useQueryClient();
   const [passphrase, setPassphrase] = useState<string>("");
   const [encryptEnabled, setEncryptEnabled] = useState<boolean>(false);
-  const [savedNotice, setSavedNotice] = useState<string | null>(null);
-
-  const { data: dbPlan, isLoading: loadingPlan } = useSafetyPlan(passphrase || undefined);
-  const updateMutation = useUpdateSafetyPlan();
+  const [notice, setNotice] = useState<Notice>(null);
+  const [saving, setSaving] = useState(false);
+  const [unlockError, setUnlockError] = useState("");
+  const [unlockPass, setUnlockPass] = useState("");
 
   const isDemo = isDemoModeActive();
 
-  // Local state for safety plan editor
+  // Editor state. Real accounts load it from the backend on mount; the offline preview reads this tab's memory.
   const [plan, setPlan] = useState<SafetyPlan>(() => {
     if (isDemo) {
       const cached = getSecureItemSync<SafetyPlan>("demo_safety_plan");
       if (cached.status === "unlocked" && cached.value) {
-        return cached.value;
-      }
-      try {
-        const stored = typeof localStorage !== "undefined" ? localStorage.getItem("mindsahaay_demo_safety_plan") : null;
-        if (stored) {
-          return JSON.parse(stored);
-        }
-      } catch {
-        // fallback
+        return withEditableRows(cached.value);
       }
     }
-    return DEFAULT_SAFETY_PLAN;
+    return EMPTY_SAFETY_PLAN;
   });
+  const [planLoad, setPlanLoad] = useState<PlanLoad>(isDemo ? "ready" : "loading");
 
-  const activePlan = isDemo ? plan : (dbPlan ?? plan);
+  const loadPlan = useCallback(async () => {
+    if (isDemo) return;
+    setPlanLoad("loading");
+    try {
+      const stored = await fetchSafetyPlan();
+      if (!stored) {
+        setPlan(EMPTY_SAFETY_PLAN);
+        setPlanLoad("ready");
+      } else if (stored.isEncrypted) {
+        setPlanLoad("locked");
+      } else {
+        setPlan(withEditableRows(stored));
+        setEncryptEnabled(false);
+        setPlanLoad("ready");
+      }
+    } catch {
+      setPlanLoad("error");
+    }
+  }, [isDemo]);
+
+  useEffect(() => {
+    void loadPlan();
+  }, [loadPlan]);
+
+  const unlockPlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!unlockPass.trim()) return;
+    setUnlockError("");
+    try {
+      const decrypted = await fetchSafetyPlan(unlockPass);
+      if (!decrypted || decrypted.isEncrypted) {
+        setUnlockError(tc("crisisPlan.wrongPassphrase"));
+        return;
+      }
+      setPlan(withEditableRows(decrypted));
+      setPassphrase(unlockPass);
+      setEncryptEnabled(true);
+      setUnlockPass("");
+      setPlanLoad("ready");
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      setUnlockError(code === "CRYPTO_DECRYPT_FAILED" ? tc("crisisPlan.wrongPassphrase") : tc("crisisPlan.loadError"));
+    }
+  };
+
+  const startNewPlan = () => {
+    setPlan(EMPTY_SAFETY_PLAN);
+    setEncryptEnabled(false);
+    setPassphrase("");
+    setUnlockError("");
+    setPlanLoad("ready");
+  };
+
+  const activePlan = plan;
 
   // Helper updates
   const updateWarningSign = (idx: number, val: string) => {
@@ -133,19 +206,35 @@ export default function CrisisPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
+    setNotice(null);
+    const wantsEncryption = encryptEnabled;
+    if (wantsEncryption && !passphrase.trim()) {
+      setNotice({ kind: "error", text: tc("crisisPlan.needPassphrase") });
+      return;
+    }
+    setSaving(true);
+    const toSave = withoutBlankRows(activePlan);
     try {
       if (!isDemo) {
-        await updateMutation.mutateAsync({
-          plan: activePlan,
-          passphrase: encryptEnabled && passphrase.trim() ? passphrase : undefined,
-        });
+        // saveSafetyPlan throws unless the backend confirmed the write, so the success notice below is truthful.
+        await saveSafetyPlan(toSave, wantsEncryption ? passphrase : undefined);
+        await queryClient.invalidateQueries({ queryKey: ["safety_plan"] });
+        setPlan(withEditableRows(toSave));
+        setNotice({ kind: "ok", text: tc("crisisPlan.saved") });
       } else {
         const vaultPass = getVaultPassphrase();
-        const activePass = (encryptEnabled && passphrase.trim()) || vaultPass || "";
+        const activePass = (wantsEncryption && passphrase.trim()) || vaultPass || "";
         if (activePass) {
-          await setSecureItem("demo_safety_plan", activePlan, activePass);
+          const result = await setSecureItem("demo_safety_plan", toSave, activePass);
+          if (result.status !== "ok") {
+            setNotice({ kind: "error", text: tc("crisisPlan.saveError") });
+            return;
+          }
+          setNotice({ kind: "ok", text: tc("crisisPlan.savedDevice") });
         } else {
-          setMemoryCacheItem("demo_safety_plan", activePlan);
+          setMemoryCacheItem("demo_safety_plan", toSave);
+          setNotice({ kind: "ok", text: tc("crisisPlan.savedPreview") });
         }
         try {
           if (typeof localStorage !== "undefined") {
@@ -155,11 +244,10 @@ export default function CrisisPage() {
           // ignore
         }
       }
-
-      setSavedNotice("Safety Plan saved securely!");
-      setTimeout(() => setSavedNotice(null), 3000);
     } catch {
-      setSavedNotice("Error saving safety plan. Please check inputs.");
+      setNotice({ kind: "error", text: tc("crisisPlan.saveError") });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -262,11 +350,45 @@ export default function CrisisPage() {
           </button>
         </div>
 
-        {loadingPlan && !isDemo ? (
-          <p className="muted">Loading safety planâ€¦</p>
+        {planLoad === "loading" ? (
+          <p className="muted" role="status">{tc("crisisPlan.loading")}</p>
+        ) : planLoad === "error" ? (
+          <div role="alert" data-testid="plan-load-error">
+            <p style={{ color: "var(--danger)", fontWeight: 600 }}>{tc("crisisPlan.loadError")}</p>
+            <button type="button" className="primary-btn" style={{ marginTop: 8 }} onClick={() => void loadPlan()}>
+              {tc("common.retry")}
+            </button>
+          </div>
+        ) : planLoad === "locked" ? (
+          <form onSubmit={(e) => void unlockPlan(e)} aria-labelledby="plan-locked-title" data-testid="plan-locked">
+            <h4 id="plan-locked-title" style={{ fontWeight: 700 }}>{tc("crisisPlan.lockedTitle")}</h4>
+            <p className="muted" style={{ margin: "6px 0 12px" }}>{tc("crisisPlan.lockedBody")}</p>
+            <label className="field-label" htmlFor="plan-unlock-pass">{tc("crisisPlan.unlockLabel")}</label>
+            <input
+              id="plan-unlock-pass"
+              type="password"
+              autoComplete="current-password"
+              value={unlockPass}
+              onChange={(e) => setUnlockPass(e.target.value)}
+              className="social-btn"
+              style={{ textAlign: "left", width: "100%", padding: "0 14px" }}
+            />
+            {unlockError && (
+              <p role="alert" style={{ color: "var(--danger)", fontWeight: 600, marginTop: 8 }}>{unlockError}</p>
+            )}
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
+              <button type="submit" className="primary-btn">{tc("crisisPlan.unlock")}</button>
+              <button type="button" className="text-btn" onClick={startNewPlan}>{tc("crisisPlan.startNew")}</button>
+            </div>
+            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>{tc("crisisPlan.startNewNote")}</p>
+          </form>
         ) : (
           <form onSubmit={handleSave}>
-            {/* Step 1: Warning Signs */}
+            {isPlanBlank(activePlan) && (
+              <p className="muted" style={{ marginBottom: 14 }} data-testid="plan-empty-hint">
+                {tc("crisisPlan.emptyHint")}
+              </p>
+            )}
             <fieldset style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 16, marginBottom: 20 }}>
               <legend style={{ fontWeight: 700, fontSize: 13, padding: "0 8px" }}>
                 Step 1: My Personal Warning Signs (Thoughts, images, mood, behavior)
@@ -410,18 +532,20 @@ export default function CrisisPage() {
               )}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <button type="submit" className="primary-btn" disabled={updateMutation.isPending}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <button type="submit" className="primary-btn" disabled={saving}>
                 <Icon name="check" size={16} />
-                {updateMutation.isPending ? "Encrypting & Savingâ€¦" : "Save Safety Plan"}
+                {saving ? tc("crisisPlan.saving") : "Save Safety Plan"}
               </button>
-
-              {savedNotice && (
-                <span className="saved-label" role="status" aria-live="polite">
-                  âœ“ {savedNotice}
-                </span>
-              )}
             </div>
+            <p role="status" aria-live="polite" className={notice?.kind === "ok" ? "saved-label" : "sr-only"} style={{ marginTop: 10 }}>
+              {notice?.kind === "ok" ? "\u2713 " + notice.text : ""}
+            </p>
+            {notice?.kind === "error" && (
+              <p role="alert" style={{ color: "var(--danger)", fontWeight: 600, marginTop: 10 }}>
+                {notice.text}
+              </p>
+            )}
           </form>
         )}
       </section>

@@ -1,0 +1,25 @@
+{
+  "crisisPlan": {
+    "loading": "Loading your safety plan...",
+    "loadError": "We could not load your safety plan. Nothing has been changed. Please try again.",
+    "lockedTitle": "Your saved safety plan is encrypted",
+    "lockedBody": "Enter the passphrase you chose when you saved it to read it. Until then it stays hidden. Nothing has been lost.",
+    "unlockLabel": "Safety plan passphrase",
+    "unlock": "Unlock plan",
+    "wrongPassphrase": "That passphrase did not open your plan. Please check it and try again.",
+    "startNew": "Start a new plan instead",
+    "startNewNote": "A new plan replaces the encrypted one only when you save it.",
+    "saved": "Safety plan saved to your account.",
+    "savedDevice": "Safety plan encrypted and saved on this device.",
+    "savedPreview": "This preview keeps the plan for this tab only. It is not stored anywhere.",
+    "saveError": "We could not save your safety plan, so nothing was saved. Your changes are still on this screen. Please try again.",
+    "needPassphrase": "Enter a passphrase to encrypt this plan, or switch encryption off.",
+    "emptyHint": "Nothing is saved yet. Add your own warning signs, coping steps, trusted people and reasons for living, then save.",
+    "saving": "Saving..."
+  },
+  "safetyCard": {
+    "saved": "Anchors encrypted and saved on this device.",
+    "saveError": "We could not save your anchors on this device, so nothing was saved. Please try again.",
+    "deviceOnly": "Your anchors are stored encrypted on this device only. They are not sent to the server."
+  }
+}
