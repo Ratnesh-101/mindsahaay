@@ -42,10 +42,12 @@ export default function StoryDetailModal({ story, onClose }: StoryDetailModalPro
       <div style={{ fontSize: 14, lineHeight: 1.7, color: "var(--ink)", margin: "16px 0 24px", whiteSpace: "pre-wrap" }}>
         {story.fullText}
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span className="muted" style={{ fontSize: 13 }}>
-          <Icon name="heart" size={14} /> {t("stories.likesOnly", { count: story.likes })}
-        </span>
+      <div style={{ display: "flex", justifyContent: story.likes && story.likes > 0 ? "space-between" : "flex-end", alignItems: "center" }}>
+        {Boolean(story.likes && story.likes > 0) && (
+          <span className="muted" style={{ fontSize: 13 }}>
+            <Icon name="heart" size={14} /> {t("stories.likesOnly", { count: story.likes })}
+          </span>
+        )}
         <button type="button" className="outline-btn min-h-11" onClick={onClose}>
           {t("stories.back")}
         </button>

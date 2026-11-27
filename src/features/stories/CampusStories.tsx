@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import "../community/i18n";
 import { CONTENT_NS } from "../journal/registerBundle";
 import { errorClass } from "../journal/ui";
-import Icon from "../../shared/ui/Icon";
 import CampusCirclesHub from "./CampusCirclesHub";
 import ModeratorQueue from "../community/ModeratorQueue";
 import StoryDetailModal, { type StoryView } from "../modals/StoryDetailModal";
@@ -182,9 +181,6 @@ export default function CampusStories({ onSelectStory }: CampusStoriesProps) {
                   <p>{s.excerpt}</p>
                   <div className="story-meta">
                     <span>{s.campus}</span>
-                    <span className="muted" style={{ fontSize: 12 }}>
-                      <Icon name="heart" size={14} /> {s.likes}
-                    </span>
                   </div>
                 </article>
               ))}

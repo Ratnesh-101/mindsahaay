@@ -19,8 +19,8 @@ beforeEach(() => {
       { id: "ci-2", name: "Hostel Life", slug: "hostel", description: "", category: "social", is_private: false },
     ],
     posts: [
-      { id: "p-1", circle_id: "ci-1", author_id: "a", title: "Finals panic", content: "Anyone else feeling stuck?", is_anonymous: true, moderation_status: "approved", likes_count: 12, created_at: "2026-01-01T10:00:00Z" },
-      { id: "p-2", circle_id: "ci-2", author_id: "b", title: "First Diwali away", content: "It was hard, a roommate helped.", is_anonymous: true, moderation_status: "approved", likes_count: 8, created_at: "2026-01-02T10:00:00Z" },
+      { id: "p-1", circle_id: "ci-1", author_id: "a", title: "Finals panic", content: "Anyone else feeling stuck?", is_anonymous: true, moderation_status: "approved", likes_count: 0, created_at: "2026-01-01T10:00:00Z" },
+      { id: "p-2", circle_id: "ci-2", author_id: "b", title: "First Diwali away", content: "It was hard, a roommate helped.", is_anonymous: true, moderation_status: "approved", likes_count: 0, created_at: "2026-01-02T10:00:00Z" },
       { id: "p-3", circle_id: "ci-2", author_id: "c", title: "Not yet reviewed", content: "waiting", is_anonymous: true, moderation_status: "pending", likes_count: 0, created_at: "2026-01-03T10:00:00Z" },
     ],
     profiles: [{ id: "user-1", role: "student" }],
@@ -54,5 +54,20 @@ describe("CampusStories (real approved posts)", () => {
     render(<CampusStories onSelectStory={vi.fn()} />);
     await screen.findByText("Finals panic");
     expect(screen.queryAllByRole("button", { name: /Mark story helpful/i })).toHaveLength(0);
+  });
+
+  it("hides the read-only like count in story cards and detail dialog for zero-like stories", async () => {
+    const user = userEvent.setup();
+    render(<CampusStories onSelectStory={vi.fn()} />);
+    await screen.findByText("Finals panic");
+    // Story card does not render any like count numbers
+    expect(screen.queryByText("12")).toBeNull();
+    expect(screen.queryByText("8")).toBeNull();
+
+    // Open story with 0 likes ("Not yet reviewed" is pending, but click "Finals panic")
+    await user.click(screen.getByRole("button", { name: "Read story: Finals panic" }));
+    const dialog = screen.getByRole("dialog", { name: "Finals panic" });
+    // In detail dialog, like count is hidden if zero/read-only
+    expect(within(dialog).queryByText(/found this helpful/i)).toBeNull();
   });
 });
