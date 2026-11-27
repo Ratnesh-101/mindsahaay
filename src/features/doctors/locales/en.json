@@ -47,7 +47,8 @@
     "withCounsellor": "with {{name}}",
     "counsellorFallback": "Campus counsellor",
     "verified": "Verified",
-    "disclaimer": "MindSahaay is educational and supportive. Counsellors are independent professionals, and nothing here is a diagnosis."
+    "disclaimer": "MindSahaay is educational and supportive. Counsellors are independent professionals, and nothing here is a diagnosis.",
+    "mineError": "We could not load your appointments and reminders. This does not mean you have none. Please try again."
   },
   "booking": {
     "eyebrow": "BOOKING CONFIRMED",

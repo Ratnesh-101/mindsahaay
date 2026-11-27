@@ -112,6 +112,7 @@
     "noteError": "We could not save the note.",
     "noteLoadError": "We could not decrypt your notes with this passphrase.",
     "noteEmpty": "No notes for this student yet.",
-    "noteRequired": "Please write a note first."
+    "noteRequired": "Please write a note first.",
+    "noteFetchError": "We could not load the saved notes. They have not been deleted. Please try again."
   }
 }

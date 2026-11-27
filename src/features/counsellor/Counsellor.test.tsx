@@ -203,6 +203,40 @@ describe("Encrypted session notes", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("write a note");
     expect(fake.tables.session_notes).toHaveLength(0);
   });
+
+  it("a saved note is shown again after a reload once the counsellor unlocks the vault", { timeout: 60000 }, async () => {
+    const PASS = "counsellor private pass";
+    await createVault(PASS, generateRecoveryCode());
+    const user = userEvent.setup();
+    const first = render(<CounsellorDashboard />);
+    await user.click(await screen.findByRole("button", { name: "Open Calm River" }));
+    await user.type(await screen.findByLabelText("Session note"), "Follow up on sleep in two weeks.");
+    await user.click(screen.getByRole("button", { name: "Encrypt and save note" }));
+    await screen.findByText("Note encrypted and saved.");
+    first.unmount();
+
+    lockVault();
+    render(<CounsellorDashboard />);
+    await user.click(await screen.findByRole("button", { name: "Open Calm River" }));
+    expect(await screen.findByRole("heading", { name: "Unlock your private vault" })).toBeInTheDocument();
+    expect(screen.queryByText("Follow up on sleep in two weeks.")).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("Passphrase"), PASS);
+    await user.click(screen.getByRole("button", { name: "Unlock" }));
+    expect(await screen.findByText("Follow up on sleep in two weeks.")).toBeInTheDocument();
+  });
+
+  it("a failed note save shows an alert, no success message, and keeps the text", { timeout: 60000 }, async () => {
+    await createVault("counsellor private pass", generateRecoveryCode());
+    const user = userEvent.setup();
+    render(<CounsellorDashboard />);
+    await user.click(await screen.findByRole("button", { name: "Open Calm River" }));
+    await user.type(await screen.findByLabelText("Session note"), "Keep this note text.");
+    fake.failTables = ["session_notes"];
+    await user.click(screen.getByRole("button", { name: "Encrypt and save note" }));
+    expect(await screen.findByText("We could not save the note.")).toBeInTheDocument();
+    expect(screen.queryByText("Note encrypted and saved.")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Session note")).toHaveValue("Keep this note text.");
+  });
 });
 
 describe("counsellor helpers", () => {

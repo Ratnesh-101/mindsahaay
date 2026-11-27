@@ -175,8 +175,12 @@ export async function cancelAppointment(appointment: Pick<MyAppointment, "id" | 
     throw new ApiError("Appointments can only be cancelled at least 2 hours before the slot.", 422, "CANCEL_TOO_LATE");
   }
   await getAuthenticatedSession();
-  const { error } = await supabase.from("appointments").update({ status: "cancelled" }).eq("id", appointment.id);
+  const { data, error } = await supabase.from("appointments").update({ status: "cancelled" }).eq("id", appointment.id).select("id");
   if (error) fail(error);
+  // An update that matches no row (row policy, or the appointment is gone) reports no error, so confirm it hit one.
+  if (!data || data.length === 0) {
+    throw new ApiError("The appointment could not be cancelled.", 409, "CANCEL_NOT_APPLIED");
+  }
 }
 
 /** Appointment reminder notifications (type starts with "appointment"). */

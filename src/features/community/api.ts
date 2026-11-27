@@ -84,6 +84,44 @@ export async function fetchPosts(circleId: string): Promise<Post[]> {
   }));
 }
 
+/** A recent approved peer post, with the name and category of the circle it was shared in. */
+export interface Voice extends Post {
+  circleName: string;
+  category: string;
+}
+
+/**
+ * The latest approved posts across the circles this student can see (RLS decides which). This is the
+ * real "Voices" feed: every item was written by a student and passed moderation. author_id is never selected.
+ */
+export async function fetchRecentVoices(limit = 30): Promise<Voice[]> {
+  await getAuthenticatedSession();
+  const { data, error } = await supabase
+    .from("posts")
+    .select("id, circle_id, title, content, is_anonymous, likes_count, created_at")
+    .eq("moderation_status", "approved")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) fail(error);
+  const rows = (data ?? []) as Record<string, unknown>[];
+  if (rows.length === 0) return [];
+  const circles = await fetchCircles();
+  const byId = new Map(circles.map((c) => [c.id, c]));
+  return rows.map((r) => {
+    const circle = byId.get(String(r.circle_id));
+    return {
+      id: String(r.id),
+      title: String(r.title),
+      content: String(r.content),
+      isAnonymous: Boolean(r.is_anonymous),
+      likesCount: Number(r.likes_count ?? 0),
+      createdAt: String(r.created_at),
+      circleName: circle?.name ?? "",
+      category: circle?.category ?? "general",
+    };
+  });
+}
+
 const ClassifySchema = z
   .object({
     status: z.enum(["approved", "flagged", "rejected"]),

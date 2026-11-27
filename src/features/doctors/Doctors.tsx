@@ -54,6 +54,7 @@ export default function Doctors({ onBookSuccess }: DoctorsProps) {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [pendingCancel, setPendingCancel] = useState<string | null>(null);
   const [videoFor, setVideoFor] = useState<Appointment | null>(null);
+  const [mineError, setMineError] = useState(false);
 
   const loadCounsellors = useCallback(async () => {
     setLoad("loading");
@@ -72,8 +73,10 @@ export default function Doctors({ onBookSuccess }: DoctorsProps) {
       const [mine, notes2] = await Promise.all([fetchMyAppointments(), fetchReminders()]);
       setAppointments(mine);
       setReminders(notes2);
+      setMineError(false);
     } catch {
-      // The directory stays usable; the appointments panel simply shows its empty state.
+      // The directory stays usable, but the panel must say it could not load instead of looking empty.
+      setMineError(true);
     }
   }, []);
 
@@ -318,7 +321,15 @@ export default function Doctors({ onBookSuccess }: DoctorsProps) {
           <h2 id="my-appts" className="text-lg font-bold">
             {t("doctors.yourAppointments")}
           </h2>
-          {upcoming.length === 0 && <p className="muted mt-2">{t("doctors.noAppointments")}</p>}
+          {mineError && (
+            <div role="alert" className={`${errorClass} mt-2`}>
+              <p>{t("doctors.mineError")}</p>
+              <button type="button" className="primary-btn mt-2 min-h-11" onClick={() => void loadMine()}>
+                {t("common.retry")}
+              </button>
+            </div>
+          )}
+          {upcoming.length === 0 && !mineError && <p className="muted mt-2">{t("doctors.noAppointments")}</p>}
           <ul className="m-0 mt-2 flex list-none flex-col gap-3 p-0">
             {upcoming.map((a) => {
               const name = nameFor(a.counsellorId);
@@ -375,7 +386,7 @@ export default function Doctors({ onBookSuccess }: DoctorsProps) {
           <h2 id="my-reminders" className="text-lg font-bold">
             {t("doctors.remindersTitle")}
           </h2>
-          {reminders.length === 0 && <p className="muted mt-2">{t("doctors.remindersEmpty")}</p>}
+          {reminders.length === 0 && !mineError && <p className="muted mt-2">{t("doctors.remindersEmpty")}</p>}
           <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0">
             {reminders.map((r) => (
               <li key={r.id} className="rounded-xl border border-[var(--line)] p-3">

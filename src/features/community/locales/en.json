@@ -1,14 +1,14 @@
 {
   "stories": {
     "voicesTitle": "Voices of Courage",
-    "voicesSubtitle": "Real, anonymous student stories of overcoming burnout, panic and campus isolation.",
+    "voicesSubtitle": "Recent posts shared by students in Campus Peer Circles. They are anonymous and were approved by moderation.",
     "circlesTitle": "Campus Peer Circles",
     "circlesSubtitle": "Anonymous peer support circles with AI pre-moderation and human moderators. Camera-free and judgment-free.",
     "tabsLabel": "Community sections",
     "tabVoices": "Voices of Courage",
     "tabCircles": "Campus Peer Circles",
     "tabModeration": "Moderator queue",
-    "filtersLabel": "Story themes",
+    "filtersLabel": "Circle categories",
     "themeAll": "All",
     "themes": {
       "Exams & Burnout": "Exams & Burnout",
@@ -23,7 +23,12 @@
     "close": "Close story",
     "readTime": "{{time}}",
     "loading": "Loading stories...",
-    "empty": "No stories in this theme yet."
+    "empty": "No stories here yet. Posts that are approved in Campus Peer Circles will appear here.",
+    "anonymousPeer": "Anonymous peer",
+    "minRead": "{{count}} min read",
+    "loadError": "We could not load the stories. Please try again.",
+    "emptyFiltered": "No stories in this category yet.",
+    "likesOnly": "{{count}} found this helpful"
   },
   "community": {
     "eyebrow": "SAFE PEER CONTAINERS",

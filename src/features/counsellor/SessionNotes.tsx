@@ -32,8 +32,9 @@ export default function SessionNotes({ studentId }: { studentId: string }) {
       setAppointmentId((cur) => cur || appts[0]?.id || "");
       setNotes(existing);
       setError("");
-    } catch {
-      setError(t("counsellor.noteLoadError"));
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      setError(code === "CRYPTO_DECRYPT_FAILED" ? t("counsellor.noteLoadError") : t("counsellor.noteFetchError"));
     }
   }, [studentId, passphrase, t]);
 

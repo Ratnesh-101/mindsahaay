@@ -96,7 +96,7 @@ export default function CirclesPanel() {
         </div>
       )}
       {load === "ready" && circles.length === 0 && <p className="muted">{t("community.empty")}</p>}
-      <p role="status" aria-live="polite" className={message ? errorClass : "sr-only"}>
+      <p role={message ? "alert" : "status"} aria-live="polite" className={message ? errorClass : "sr-only"}>
         {message}
       </p>
 
@@ -233,10 +233,11 @@ function CircleFeed({ circle, isMember }: { circle: Circle; isMember: boolean })
             {reporting === p.id ? (
               <ReportForm
                 postId={p.id}
-                onDone={(ok) => {
+                onSent={() => {
                   setReporting(null);
-                  setNotice(ok ? t("community.reportSent") : t("community.reportError"));
+                  setNotice(t("community.reportSent"));
                 }}
+                onCancel={() => setReporting(null)}
               />
             ) : (
               <button
@@ -255,11 +256,12 @@ function CircleFeed({ circle, isMember }: { circle: Circle; isMember: boolean })
   );
 }
 
-function ReportForm({ postId, onDone }: { postId: string; onDone: (ok: boolean) => void }) {
+function ReportForm({ postId, onSent, onCancel }: { postId: string; onSent: () => void; onCancel: () => void }) {
   const { t } = useTranslation(CONTENT_NS);
   const [reason, setReason] = useState<ReportReason>("self_harm");
   const [details, setDetails] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const selectRef = useRef<HTMLSelectElement>(null);
 
   useEffect(() => {
@@ -268,12 +270,16 @@ function ReportForm({ postId, onDone }: { postId: string; onDone: (ok: boolean) 
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     setBusy(true);
+    setError("");
     try {
       await reportPost(postId, reason, details);
-      onDone(true);
+      onSent();
     } catch {
-      onDone(false);
+      // Keep the form open with what the student typed, so the report can be retried.
+      setError(t("community.reportError"));
+      setBusy(false);
     }
   };
 
@@ -299,11 +305,16 @@ function ReportForm({ postId, onDone }: { postId: string; onDone: (ok: boolean) 
         {t("community.reportDetails")}
       </label>
       <textarea id={`rd-${postId}`} className={fieldClass} value={details} maxLength={500} onChange={(e) => setDetails(e.target.value)} />
+      {error && (
+        <p role="alert" className={errorClass}>
+          {error}
+        </p>
+      )}
       <div className="flex gap-2">
         <button type="submit" className="primary-btn min-h-11" disabled={busy}>
           {t("community.reportSubmit")}
         </button>
-        <button type="button" className="outline-btn min-h-11" onClick={() => onDone(true)} disabled={busy}>
+        <button type="button" className="outline-btn min-h-11" onClick={onCancel} disabled={busy}>
           {t("community.reportCancel")}
         </button>
       </div>

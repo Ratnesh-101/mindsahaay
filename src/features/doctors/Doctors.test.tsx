@@ -228,3 +228,56 @@ describe("video session and confirmation modals", () => {
     expect(onClose).toHaveBeenCalled();
   });
 });
+
+describe("Doctors: persistence and failure paths (U3 audit)", () => {
+  it("a cancellation is still visible after a reload, because the list is read from the backend", async () => {
+    const user = userEvent.setup();
+    const first = render(<Doctors studentId="user-1" onBookSuccess={() => undefined} />);
+    const section = (await screen.findByRole("heading", { name: "Your appointments" })).closest("section") as HTMLElement;
+    await waitFor(() => expect(within(section).getAllByRole("button", { name: "Cancel appointment" })).toHaveLength(2));
+    await user.click(within(section).getAllByRole("button", { name: "Cancel appointment" })[1]);
+    await user.click(screen.getByRole("button", { name: "Yes, cancel it" }));
+    await screen.findByText("Appointment cancelled.");
+    first.unmount();
+
+    render(<Doctors studentId="user-1" onBookSuccess={() => undefined} />);
+    const again = (await screen.findByRole("heading", { name: "Your appointments" })).closest("section") as HTMLElement;
+    await waitFor(() => expect(within(again).getByText("Cancelled")).toBeInTheDocument());
+    expect(fake.tables.appointments.find((a) => a.id === "a-1")?.status).toBe("cancelled");
+  });
+
+  it("a cancellation the backend did not apply is reported as an error, not as cancelled", async () => {
+    const user = userEvent.setup();
+    render(<Doctors studentId="user-1" onBookSuccess={() => undefined} />);
+    const section = (await screen.findByRole("heading", { name: "Your appointments" })).closest("section") as HTMLElement;
+    await waitFor(() => expect(within(section).getAllByRole("button", { name: "Cancel appointment" })).toHaveLength(2));
+    await user.click(within(section).getAllByRole("button", { name: "Cancel appointment" })[1]);
+    // The row disappears (for example a policy hides it), so the update matches nothing.
+    fake.tables.appointments = fake.tables.appointments.filter((a) => a.id !== "a-1");
+    await user.click(screen.getByRole("button", { name: "Yes, cancel it" }));
+    expect(await screen.findByText(/could not cancel/i)).toBeInTheDocument();
+    expect(screen.queryByText("Appointment cancelled.")).not.toBeInTheDocument();
+  });
+
+  it("a failed booking says so, sends no success to the host app and keeps the note", async () => {
+    mockCall.mockRejectedValueOnce(new ApiError("server down", 500, "STREAM_FAILED"));
+    const onBook = vi.fn();
+    const user = userEvent.setup();
+    render(<Doctors studentId="user-1" onBookSuccess={onBook} />);
+    const slots = await screen.findByRole("group", { name: "Available slots" });
+    await user.click((await within(slots).findAllByRole("button"))[0]);
+    await user.type(screen.getByLabelText(/Note for your counsellor/), "Exam stress");
+    await user.click(screen.getByRole("button", { name: /Book appointment/ }));
+    expect(await screen.findByText(/could not book/i)).toBeInTheDocument();
+    expect(screen.queryByText("Appointment confirmed.")).not.toBeInTheDocument();
+    expect(onBook).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/Note for your counsellor/)).toHaveValue("Exam stress");
+  });
+
+  it("when appointments cannot be loaded it says so instead of showing 'no appointments'", async () => {
+    fake.failTables = ["appointments"];
+    render(<Doctors studentId="user-1" onBookSuccess={() => undefined} />);
+    expect(await screen.findByText(/could not load your appointments/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no upcoming appointments/i)).not.toBeInTheDocument();
+  });
+});

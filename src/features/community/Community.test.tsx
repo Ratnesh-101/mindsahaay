@@ -5,15 +5,6 @@ import userEvent from "@testing-library/user-event";
 
 vi.mock("../../shared/lib/supabase", async () => (await import("../journal/testSupport")).supabaseModule());
 vi.mock("../doctors/http", () => ({ callFunction: vi.fn() }));
-vi.mock("../../api", () => ({
-  wellnessApi: {
-    getStories: vi.fn(async () => [
-      { id: "s1", title: "Surviving finals", campus: "DU", theme: "Exams & Burnout", author: "Anon", excerpt: "A short excerpt", fullText: "Full text", likes: 3, readTime: "3 min" },
-      { id: "s2", title: "Far from home", campus: "IITB", theme: "Homesickness", author: "Anon", excerpt: "Another excerpt", fullText: "More text", likes: 1, readTime: "2 min" },
-    ]),
-    likeStory: vi.fn(async () => []),
-  },
-}));
 
 import { fake, fakeSupabase, resetFake, setupI18n } from "../journal/testSupport";
 import { callFunction } from "../doctors/http";
@@ -36,6 +27,7 @@ function seed(role = "student") {
     posts: [
       { id: "p-1", circle_id: "ci-1", author_id: "someone-else", title: "Finals panic", content: "Anyone else feeling stuck?", is_anonymous: true, moderation_status: "approved", likes_count: 2, created_at: "2026-01-01T10:00:00Z" },
       { id: "p-2", circle_id: "ci-1", author_id: "someone-else", title: "Hidden pending", content: "pending text", is_anonymous: true, moderation_status: "flagged", likes_count: 0, created_at: "2026-01-02T10:00:00Z", ai_moderation: { reasons: ["pii"] } },
+      { id: "p-3", circle_id: "ci-2", author_id: "someone-else", title: "Far from home", content: "Missing my family at Diwali.", is_anonymous: true, moderation_status: "approved", likes_count: 1, created_at: "2026-01-03T10:00:00Z" },
     ],
     profiles: [{ id: "user-1", role }],
     reports: [{ id: "r-1", reporter_id: "other", resource_type: "post", resource_id: "p-1", reason: "harassment", details: "", moderation_status: "pending", created_at: "2026-01-03T10:00:00Z" }],
@@ -190,6 +182,36 @@ describe("Campus Circles", () => {
     expect(mine).toMatchObject({ resource_type: "post", resource_id: "p-1", reason: "harassment", details: "Targeting someone" });
   });
 
+  it("a failed report keeps the form and the details, says it was not sent, and can be retried", async () => {
+    const user = userEvent.setup();
+    await openCircle(user);
+    await user.click(await screen.findByRole("button", { name: "Report post Finals panic" }));
+    await user.type(screen.getByLabelText(/Anything else/), "Please check this");
+    fake.signedIn = false;
+    await user.click(screen.getByRole("button", { name: "Send report" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("could not send the report");
+    expect(screen.queryByText(/A moderator will review/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Anything else/)).toHaveValue("Please check this");
+    fake.signedIn = true;
+    await user.click(screen.getByRole("button", { name: "Send report" }));
+    expect(await screen.findByText(/A moderator will review/)).toBeInTheDocument();
+    expect(fake.tables.reports.filter((r) => r.reporter_id === "user-1")).toHaveLength(1);
+  });
+
+  it("membership is read back from the backend after a reload", async () => {
+    const user = userEvent.setup();
+    const first = render(<CirclesPanel />);
+    const list = await screen.findByRole("list", { name: "Circles" });
+    const hostel = within(list).getByRole("heading", { name: "Hostel Life" }).closest("li") as HTMLElement;
+    await user.click(within(hostel).getByRole("button", { name: "Join circle" }));
+    await within(hostel).findByRole("button", { name: "Leave circle" });
+    first.unmount();
+    render(<CirclesPanel />);
+    const again = await screen.findByRole("list", { name: "Circles" });
+    const hostel2 = within(again).getByRole("heading", { name: "Hostel Life" }).closest("li") as HTMLElement;
+    expect(within(hostel2).getByRole("button", { name: "Leave circle" })).toBeInTheDocument();
+  });
+
   it("opens and closes the safe-space norms dialog", async () => {
     const user = userEvent.setup();
     render(<CirclesPanel />);
@@ -256,17 +278,57 @@ describe("Moderator queue", () => {
 });
 
 describe("Stories hub", () => {
-  it("filters stories, opens one, and hides the moderator tab from students", async () => {
+  it("lists real approved posts only, filters by circle category, opens one, and hides the moderator tab from students", async () => {
     const onSelect = vi.fn();
     const user = userEvent.setup();
     render(<CampusStories onSelectStory={onSelect} />);
-    expect(await screen.findByRole("button", { name: "Read story: Surviving finals" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Read story: Finals panic" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Read story: Far from home" })).toBeInTheDocument();
+    // Not approved: never shown. No invented stories either.
+    expect(screen.queryByText("Hidden pending")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Delhi University|Surviving End-Sem/)).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Moderator queue" })).not.toBeInTheDocument();
+    // Counts are read-only: there is no like button that pretends to save.
+    expect(screen.queryByRole("button", { name: /Mark story helpful/ })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Homesickness" }));
-    expect(screen.queryByText("Surviving finals")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "social" }));
+    expect(screen.queryByText("Finals panic")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Read story: Far from home" }));
-    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "s2" }));
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "p-3" }));
+    const dialog = screen.getByRole("dialog", { name: "Far from home" });
+    expect(within(dialog).getByText("Missing my family at Diwali.")).toBeInTheDocument();
+  });
+
+  it("shows an honest empty state, not sample stories, when nothing has been approved", async () => {
+    resetFake({ circles: [], posts: [], profiles: [{ id: "user-1", role: "student" }] });
+    render(<CampusStories onSelectStory={() => undefined} />);
+    expect(await screen.findByText(/No stories here yet/)).toBeInTheDocument();
+    expect(screen.queryByRole("article")).not.toBeInTheDocument();
+  });
+
+  it("shows an alert with retry when the stories cannot load, not an empty list", async () => {
+    const user = userEvent.setup();
+    const realFrom = fakeSupabase.from;
+    let broken = true;
+    vi.spyOn(fakeSupabase, "from").mockImplementation((table: string) => {
+      if (broken && table === "posts") throw new Error("network down");
+      return realFrom(table);
+    });
+    render(<CampusStories onSelectStory={() => undefined} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("We could not load the stories");
+    expect(screen.queryByText(/No stories here yet/)).not.toBeInTheDocument();
+    broken = false;
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("button", { name: "Read story: Finals panic" })).toBeInTheDocument();
+    vi.restoreAllMocks();
+  });
+
+  it("shows the same stories again after a reload (unmount and mount with the same backend)", async () => {
+    const first = render(<CampusStories onSelectStory={() => undefined} />);
+    await screen.findByRole("button", { name: "Read story: Finals panic" });
+    first.unmount();
+    render(<CampusStories onSelectStory={() => undefined} />);
+    expect(await screen.findByRole("button", { name: "Read story: Finals panic" })).toBeInTheDocument();
   });
 
   it("shows the moderator tab to moderators and the circles hub on demand", async () => {
@@ -279,20 +341,18 @@ describe("Stories hub", () => {
     expect(await screen.findByRole("list", { name: "Circles" })).toBeInTheDocument();
   });
 
-  it("renders the story dialog with a labelled close button", async () => {
+  it("renders the story dialog with a labelled close button and a read-only helpful count", async () => {
     const onClose = vi.fn();
-    const onLike = vi.fn();
     const user = userEvent.setup();
     render(
       <StoryDetailModal
-        story={{ id: "s1", title: "Surviving finals", campus: "DU", theme: "Exams & Burnout", author: "Anon", excerpt: "e", fullText: "Full text body", likes: 3, readTime: "3 min" }}
+        story={{ id: "s1", title: "Surviving finals", campus: "DU", theme: "Exams & Burnout", author: "Anon", fullText: "Full text body", likes: 3 }}
         onClose={onClose}
-        onLike={onLike}
       />,
     );
     expect(screen.getByRole("dialog", { name: "Surviving finals" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Helpful (3)" }));
-    expect(onLike).toHaveBeenCalledWith("s1");
+    expect(screen.getByText("3 found this helpful")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Helpful/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Close story" }));
     expect(onClose).toHaveBeenCalled();
   });
