@@ -1,18 +1,29 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { type CommunityStory } from "../../api";
 import "../community/i18n";
 import { CONTENT_NS } from "../journal/registerBundle";
 import Icon from "../../shared/ui/Icon";
 import Modal from "../../shared/ui/Modal";
 
-interface StoryDetailModalProps {
-  story: CommunityStory;
-  onClose: () => void;
-  onLike: (id: string) => void;
+/** What the story dialog needs. A student-written circle post and the legacy story type both fit. */
+export interface StoryView {
+  id: string;
+  title: string;
+  theme: string;
+  campus: string;
+  author: string;
+  fullText: string;
+  likes: number;
 }
 
-export default function StoryDetailModal({ story, onClose, onLike }: StoryDetailModalProps) {
+interface StoryDetailModalProps {
+  story: StoryView;
+  onClose: () => void;
+  /** Ignored. Helpful counts come from the server and cannot be changed from here, so no fake like button is shown. */
+  onLike?: (id: string) => void;
+}
+
+export default function StoryDetailModal({ story, onClose }: StoryDetailModalProps) {
   const { t } = useTranslation(CONTENT_NS);
   return (
     <Modal onClose={onClose} ariaLabel={story.title} cardStyle={{ maxWidth: 620 }}>
@@ -28,11 +39,13 @@ export default function StoryDetailModal({ story, onClose, onLike }: StoryDetail
           <Icon name="x" />
         </button>
       </div>
-      <div style={{ fontSize: 14, lineHeight: 1.7, color: "var(--ink)", margin: "16px 0 24px" }}>{story.fullText}</div>
+      <div style={{ fontSize: 14, lineHeight: 1.7, color: "var(--ink)", margin: "16px 0 24px", whiteSpace: "pre-wrap" }}>
+        {story.fullText}
+      </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button type="button" className="like-btn min-h-11" onClick={() => onLike(story.id)}>
-          <Icon name="heart" size={16} /> {t("stories.helpful", { count: story.likes })}
-        </button>
+        <span className="muted" style={{ fontSize: 13 }}>
+          <Icon name="heart" size={14} /> {t("stories.likesOnly", { count: story.likes })}
+        </span>
         <button type="button" className="outline-btn min-h-11" onClick={onClose}>
           {t("stories.back")}
         </button>

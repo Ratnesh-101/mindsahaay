@@ -1,0 +1,6 @@
+{
+  "notifications": {
+    "loadError": "We could not load your notifications. This does not mean there are none. Please try again.",
+    "retry": "Try again"
+  }
+}

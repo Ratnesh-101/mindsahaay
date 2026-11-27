@@ -1,102 +1,58 @@
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+
+vi.mock("../../shared/lib/supabase", async () => (await import("../journal/testSupport")).supabaseModule());
+
+import { resetFake, setupI18n } from "../journal/testSupport";
 import CampusStories from "./CampusStories";
-import { wellnessApi, type CommunityStory } from "../../api";
-import * as CommunityApi from "../community/api";
-import I18nProvider from "../../app/providers/I18nProvider";
-import QueryProvider from "../../app/providers/QueryProvider";
 
-const mockStories: CommunityStory[] = [
-  {
-    id: "story-1",
-    theme: "Exams & Burnout",
-    title: "Surviving End-Sem Pressure at Delhi University",
-    excerpt: "When syllabus felt endless, 4-7-8 breathing kept me grounded.",
-    fullText: "Full story text here...",
-    readTime: "3 min read",
-    campus: "Delhi University",
-    author: "Mathematics Student",
-    likes: 12,
-  },
-  {
-    id: "story-2",
-    theme: "Homesickness",
-    title: "First Diwali Away From Home in Hostel",
-    excerpt: "How campus peer circles became my chosen family.",
-    fullText: "Full Diwali story...",
-    readTime: "4 min read",
-    campus: "IIT Delhi",
-    author: "Hostel Resident",
-    likes: 8,
-  },
-];
+beforeAll(async () => {
+  await setupI18n("en");
+});
 
-describe("CampusStories Component", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-    vi.spyOn(wellnessApi, "getStories").mockResolvedValue(mockStories);
-    vi.spyOn(wellnessApi, "likeStory").mockImplementation(async (id: string) => {
-      return mockStories.map((s) => (s.id === id ? { ...s, likes: s.likes + 1 } : s));
-    });
-    vi.spyOn(CommunityApi, "fetchMyRole").mockResolvedValue("student");
+beforeEach(() => {
+  resetFake({
+    circles: [
+      { id: "ci-1", name: "Exam Stress Circle", slug: "exam", description: "", category: "academic", is_private: false },
+      { id: "ci-2", name: "Hostel Life", slug: "hostel", description: "", category: "social", is_private: false },
+    ],
+    posts: [
+      { id: "p-1", circle_id: "ci-1", author_id: "a", title: "Finals panic", content: "Anyone else feeling stuck?", is_anonymous: true, moderation_status: "approved", likes_count: 12, created_at: "2026-01-01T10:00:00Z" },
+      { id: "p-2", circle_id: "ci-2", author_id: "b", title: "First Diwali away", content: "It was hard, a roommate helped.", is_anonymous: true, moderation_status: "approved", likes_count: 8, created_at: "2026-01-02T10:00:00Z" },
+      { id: "p-3", circle_id: "ci-2", author_id: "c", title: "Not yet reviewed", content: "waiting", is_anonymous: true, moderation_status: "pending", likes_count: 0, created_at: "2026-01-03T10:00:00Z" },
+    ],
+    profiles: [{ id: "user-1", role: "student" }],
+  });
+});
+
+describe("CampusStories (real approved posts)", () => {
+  it("lists approved posts, labels the circle and shows no author identity", async () => {
+    render(<CampusStories onSelectStory={vi.fn()} />);
+    expect(await screen.findByText("Finals panic")).toBeInTheDocument();
+    expect(screen.getByText("First Diwali away")).toBeInTheDocument();
+    expect(screen.queryByText("Not yet reviewed")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Hostel Life").length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toMatch(/user-1|"author_id"/);
   });
 
-  function renderStories(onSelectStory = vi.fn()) {
-    return render(
-      <QueryProvider>
-        <I18nProvider>
-          <CampusStories onSelectStory={onSelectStory} />
-        </I18nProvider>
-      </QueryProvider>
-    );
-  }
-
-  it("renders stories list and filters by theme", async () => {
-    renderStories();
-
-    await waitFor(() => {
-      expect(screen.getByText("Surviving End-Sem Pressure at Delhi University")).toBeInTheDocument();
-      expect(screen.getByText("First Diwali Away From Home in Hostel")).toBeInTheDocument();
-    });
-
-    // Filter by Homesickness
-    const homesickFilter = screen.getByRole("button", { name: /Homesickness/i });
-    fireEvent.click(homesickFilter);
-
-    expect(screen.getByText("First Diwali Away From Home in Hostel")).toBeInTheDocument();
-    expect(screen.queryByText("Surviving End-Sem Pressure at Delhi University")).toBeNull();
-  });
-
-  it("triggers onSelectStory when clicking a story title", async () => {
+  it("filters by circle category and triggers onSelectStory", async () => {
     const onSelect = vi.fn();
-    renderStories(onSelect);
-
-    const storyTitleBtn = await screen.findByRole("button", {
-      name: /Read story: Surviving End-Sem Pressure at Delhi University/i,
-    });
-    fireEvent.click(storyTitleBtn);
-
-    expect(onSelect).toHaveBeenCalledWith(mockStories[0]);
+    const user = userEvent.setup();
+    render(<CampusStories onSelectStory={onSelect} />);
+    await screen.findByText("Finals panic");
+    await user.click(screen.getByRole("button", { name: "social" }));
+    expect(screen.queryByText("Finals panic")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Read story: First Diwali away" }));
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "p-2" }));
+    const dialog = screen.getByRole("dialog", { name: "First Diwali away" });
+    expect(within(dialog).getByText("It was hard, a roommate helped.")).toBeInTheDocument();
   });
 
-  it("handles like action", async () => {
-    renderStories();
-
-    const likeButtons = await screen.findAllByRole("button", { name: /Mark story helpful/i });
-    fireEvent.click(likeButtons[0]);
-
-    await waitFor(() => {
-      expect(wellnessApi.likeStory).toHaveBeenCalledWith("story-1");
-    });
-  });
-
-  it("shows moderation tab when user has moderator role", async () => {
-    vi.spyOn(CommunityApi, "fetchMyRole").mockResolvedValue("moderator");
-    renderStories();
-
-    await waitFor(() => {
-      expect(screen.getByRole("tab", { name: /Moderator queue/i })).toBeInTheDocument();
-    });
+  it("offers no like button because a like cannot be saved", async () => {
+    render(<CampusStories onSelectStory={vi.fn()} />);
+    await screen.findByText("Finals panic");
+    expect(screen.queryAllByRole("button", { name: /Mark story helpful/i })).toHaveLength(0);
   });
 });
