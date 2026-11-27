@@ -39,6 +39,7 @@ export default function Chat({
   const logRef = useRef<HTMLDivElement>(null);
   const loggedRef = useRef(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const lastOutgoingRef = useRef("");
 
   const crisisVisible = crisisSticky || isCrisis;
 
@@ -69,8 +70,16 @@ export default function Chat({
     }
     setText("");
     setNotice("");
+    lastOutgoingRef.current = outgoing;
     void sendMessage(outgoing);
   };
+
+  // If a message did not go through, put the words back in the box so the student can retry without retyping.
+  useEffect(() => {
+    if (error && lastOutgoingRef.current) {
+      setText((current) => current || lastOutgoingRef.current);
+    }
+  }, [error]);
 
   const openSafetyPlan = () => (onOpenSafetyPlan ? onOpenSafetyPlan() : setModal("safety"));
   const openBreathing = () => (onOpenBreathing ? onOpenBreathing() : setModal("breathing"));
@@ -260,6 +269,9 @@ export default function Chat({
         )}
         <p className="chat-disclaimer">
           <Icon name="shield" size={14} /> {t("chat.disclaimer")}
+        </p>
+        <p className="chat-disclaimer" data-testid="chat-not-saved">
+          <Icon name="clock" size={14} /> {t("chat.notSaved")}
         </p>
       </section>
 

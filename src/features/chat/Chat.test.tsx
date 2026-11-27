@@ -77,6 +77,21 @@ describe("Chat: labelling, streaming and degraded mode", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("very quickly");
   });
 
+  it("says plainly that the conversation is not saved", () => {
+    render(<Chat studentId="user-1" />);
+    expect(screen.getByTestId("chat-not-saved")).toHaveTextContent("does not save this conversation");
+  });
+
+  it("puts an unsent message back in the box so it can be retried", async () => {
+    spyFetch(() => new Response("server error", { status: 500 }));
+    const user = userEvent.setup();
+    render(<Chat studentId="user-1" />);
+    await user.type(screen.getByLabelText("Message for MindMate"), "Kal viva hai, darr lag raha hai");
+    await user.click(screen.getByRole("button", { name: "Send message" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("did not go through");
+    await waitFor(() => expect(screen.getByLabelText("Message for MindMate")).toHaveValue("Kal viva hai, darr lag raha hai"));
+  });
+
   it("offers breathing, safety plan and booking chips", async () => {
     const user = userEvent.setup();
     const onBook = vi.fn();

@@ -46,6 +46,7 @@
       "continue": "I have read this, continue chatting",
       "paused": "Chat is paused while you look at the support options above.",
       "pinned": "This support card stays visible for the rest of this session."
-    }
+    },
+    "notSaved": "MindSahaay does not save this conversation. It disappears when you reload or leave this page, so you will not see it again."
   }
 }
