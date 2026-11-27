@@ -72,13 +72,19 @@ BEGIN
   VALUES ('c0000001-0000-0000-0000-000000000001'::uuid, v_student_b, 'encrypted_cbt_thought_student_b', 'iv999', 'salt888');
 
   -- Student B creates Chat Session & Chat Messages (one active, one expired)
-  INSERT INTO public.chat_sessions (id, user_id, title, risk_level)
-  VALUES (v_session_b, v_student_b, 'Private Session B', 'low');
+  INSERT INTO public.chat_sessions (id, user_id, title, salt)
+  VALUES (v_session_b, v_student_b, 'Well-being Chat', 'dGVzdHNhbHQxMjM0NTY=');
 
-  INSERT INTO public.chat_messages (id, session_id, sender_role, encrypted_content, retention_expires_at, created_at)
+  INSERT INTO public.chat_messages (id, session_id, sender_role, encrypted_content, iv, seq)
   VALUES 
-    ('f0000001-0000-0000-0000-000000000001'::uuid, v_session_b, 'user', 'enc_active_msg', now() + interval '20 days', now()),
-    ('f0000002-0000-0000-0000-000000000002'::uuid, v_session_b, 'user', 'enc_expired_msg', now() - interval '2 days', now() - interval '32 days');
+    ('f0000001-0000-0000-0000-000000000001'::uuid, v_session_b, 'user', 'enc_active_msg', 'iv_test_1', 1),
+    ('f0000002-0000-0000-0000-000000000002'::uuid, v_session_b, 'user', 'enc_expired_msg', 'iv_test_2', 2);
+
+  -- Manually expire message 2 for retention testing (trigger only forces on insert)
+  UPDATE public.chat_messages
+  SET retention_expires_at = now() - interval '2 days',
+      created_at = now() - interval '32 days'
+  WHERE id = 'f0000002-0000-0000-0000-000000000002'::uuid;
 
   -- Student B creates posts: one approved, one flagged
   INSERT INTO public.posts (id, circle_id, author_id, title, content, moderation_status)
@@ -129,8 +135,8 @@ SELECT is_empty(
 );
 
 PREPARE student_a_spoof_message AS
-  INSERT INTO public.chat_messages (session_id, sender_role, encrypted_content)
-  VALUES ('abcdabcd-abcd-abcd-abcd-abcdabcdabcd'::uuid, 'user', 'hacked');
+  INSERT INTO public.chat_messages (session_id, sender_role, encrypted_content, iv, seq)
+  VALUES ('abcdabcd-abcd-abcd-abcd-abcdabcdabcd'::uuid, 'user', 'hacked', 'iv_spoof', 3);
 
 SELECT throws_ok(
   'student_a_spoof_message',
