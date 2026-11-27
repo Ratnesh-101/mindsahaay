@@ -227,7 +227,7 @@ export default function Login({
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 6 }}>
               <span aria-hidden="true">⚡</span>
               <strong style={{ fontSize: 13, color: "oklch(0.35 0.09 70)" }}>
-                OFFLINE DEMO MODE AVAILABLE
+                OFFLINE PREVIEW (SAMPLE DATA, NO ACCOUNT)
               </strong>
             </div>
             <p style={{ fontSize: 12, color: "oklch(0.4 0.05 70)", margin: "0 0 12px", lineHeight: 1.4 }}>
@@ -245,7 +245,7 @@ export default function Login({
                   padding: "0 14px",
                 }}
               >
-                Enter Demo as Student (Aarav)
+                Offline preview (sample data, no account)
               </button>
               <button
                 type="button"

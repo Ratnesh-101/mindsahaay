@@ -56,6 +56,16 @@ export const DEMO_USERS: Record<UserRole, UserProfile> = {
 const DEMO_MODE_STORAGE_KEY = "mindsahaay_demo_mode";
 const DEMO_ROLE_STORAGE_KEY = "mindsahaay_demo_role";
 
+// Clean up any legacy localStorage keys immediately on module load so stale sessions never persist
+if (typeof window !== "undefined" && window.localStorage) {
+  try {
+    window.localStorage.removeItem(DEMO_MODE_STORAGE_KEY);
+    window.localStorage.removeItem(DEMO_ROLE_STORAGE_KEY);
+  } catch {
+    // ignore storage access errors
+  }
+}
+
 export function isDemoModeActive(): boolean {
   if (typeof window === "undefined") {
     return false;
@@ -64,16 +74,30 @@ export function isDemoModeActive(): boolean {
   if (envVal === "true" || envVal === true) {
     return true;
   }
-  return localStorage.getItem(DEMO_MODE_STORAGE_KEY) === "true";
+  // Guarantee any legacy localStorage items are purged
+  try {
+    if (localStorage.getItem(DEMO_MODE_STORAGE_KEY) !== null) {
+      localStorage.removeItem(DEMO_MODE_STORAGE_KEY);
+    }
+  } catch {
+    // ignore
+  }
+  return sessionStorage.getItem(DEMO_MODE_STORAGE_KEY) === "true";
 }
 
 export function setDemoMode(active: boolean): void {
   if (typeof window !== "undefined") {
-    if (active) {
-      localStorage.setItem(DEMO_MODE_STORAGE_KEY, "true");
-    } else {
+    try {
       localStorage.removeItem(DEMO_MODE_STORAGE_KEY);
       localStorage.removeItem(DEMO_ROLE_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+    if (active) {
+      sessionStorage.setItem(DEMO_MODE_STORAGE_KEY, "true");
+    } else {
+      sessionStorage.removeItem(DEMO_MODE_STORAGE_KEY);
+      sessionStorage.removeItem(DEMO_ROLE_STORAGE_KEY);
     }
     window.dispatchEvent(new Event("mindsahaay-demo-change"));
   }
@@ -81,7 +105,14 @@ export function setDemoMode(active: boolean): void {
 
 export function getDemoRole(): UserRole {
   if (typeof window !== "undefined") {
-    const stored = localStorage.getItem(DEMO_ROLE_STORAGE_KEY) as UserRole | null;
+    try {
+      if (localStorage.getItem(DEMO_ROLE_STORAGE_KEY) !== null) {
+        localStorage.removeItem(DEMO_ROLE_STORAGE_KEY);
+      }
+    } catch {
+      // ignore
+    }
+    const stored = sessionStorage.getItem(DEMO_ROLE_STORAGE_KEY) as UserRole | null;
     if (stored && stored in DEMO_USERS) {
       return stored;
     }
@@ -91,7 +122,12 @@ export function getDemoRole(): UserRole {
 
 export function setDemoRole(role: UserRole): void {
   if (typeof window !== "undefined") {
-    localStorage.setItem(DEMO_ROLE_STORAGE_KEY, role);
+    try {
+      localStorage.removeItem(DEMO_ROLE_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+    sessionStorage.setItem(DEMO_ROLE_STORAGE_KEY, role);
     window.dispatchEvent(new Event("mindsahaay-demo-change"));
   }
 }

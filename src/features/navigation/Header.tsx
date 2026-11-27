@@ -15,6 +15,7 @@ interface HeaderProps {
   openSettings: () => void;
   openAudioSanctuary?: () => void;
   openSafetyCard?: () => void;
+  hasUnread?: boolean;
 }
 
 export default function Header({
@@ -29,6 +30,7 @@ export default function Header({
   openSettings,
   openAudioSanctuary,
   openSafetyCard,
+  hasUnread = false,
 }: HeaderProps) {
   const { i18n } = useTranslation();
   const currentLang = i18n.language || "en";
@@ -129,7 +131,7 @@ export default function Header({
         {/* Notification */}
         <button type="button" className="icon-btn" aria-label="Notifications" onClick={openNotification}>
           <Icon name="bell" />
-          <span />
+          {hasUnread && <span />}
         </button>
 
         {/* Avatar Button */}

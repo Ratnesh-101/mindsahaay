@@ -14,6 +14,7 @@ describe("Login Authentication & Demo Mode", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
+    sessionStorage.clear();
     signInWithEmailMock.mockReset();
     signInWithGoogleMock.mockReset();
 
@@ -51,7 +52,7 @@ describe("Login Authentication & Demo Mode", () => {
 
     expect(screen.getByRole("button", { name: /Google/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/University or Personal Email/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Enter Demo as Student \(Aarav\)/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Offline preview \(sample data, no account\)/i })).toBeInTheDocument();
   });
 
   it("submits magic link request via Supabase Auth", async () => {
@@ -84,14 +85,15 @@ describe("Login Authentication & Demo Mode", () => {
   it("activates Demo Mode and navigates to dashboard on demo button click", async () => {
     renderLogin();
 
-    const demoBtn = screen.getByRole("button", { name: /Enter Demo as Student \(Aarav\)/i });
+    const demoBtn = screen.getByRole("button", { name: /Offline preview \(sample data, no account\)/i });
     fireEvent.click(demoBtn);
 
     await waitFor(() => {
       expect(screen.getByText("Dashboard Landed")).toBeInTheDocument();
     });
 
-    expect(localStorage.getItem("mindsahaay_demo_mode")).toBe("true");
+    expect(sessionStorage.getItem("mindsahaay_demo_mode")).toBe("true");
+    expect(localStorage.getItem("mindsahaay_demo_mode")).toBeNull();
   });
 
   it("opens demo role picker and allows selecting counsellor role", async () => {
@@ -104,7 +106,8 @@ describe("Login Authentication & Demo Mode", () => {
 
     const counsellorRoleBtn = screen.getByRole("button", { name: /Dr. Ananya Sharma \(Counsellor\)/i });
     fireEvent.click(counsellorRoleBtn);
-    expect(localStorage.getItem("mindsahaay_demo_role")).toBe("counsellor");
+    expect(sessionStorage.getItem("mindsahaay_demo_role")).toBe("counsellor");
+    expect(localStorage.getItem("mindsahaay_demo_role")).toBeNull();
   });
 
   it("allows selecting moderator in demo role picker", () => {
@@ -113,7 +116,8 @@ describe("Login Authentication & Demo Mode", () => {
     fireEvent.click(screen.getByRole("button", { name: /More Roles…/i }));
     const moderatorRoleBtn = screen.getByRole("button", { name: /Rohan Verma \(Community Moderator\)/i });
     fireEvent.click(moderatorRoleBtn);
-    expect(localStorage.getItem("mindsahaay_demo_role")).toBe("moderator");
+    expect(sessionStorage.getItem("mindsahaay_demo_role")).toBe("moderator");
+    expect(localStorage.getItem("mindsahaay_demo_role")).toBeNull();
   });
 
   it("allows selecting institution admin in demo role picker", () => {
@@ -122,6 +126,7 @@ describe("Login Authentication & Demo Mode", () => {
     fireEvent.click(screen.getByRole("button", { name: /More Roles…/i }));
     const adminRoleBtn = screen.getByRole("button", { name: /Dean of Student Welfare \(Administrator\)/i });
     fireEvent.click(adminRoleBtn);
-    expect(localStorage.getItem("mindsahaay_demo_role")).toBe("institution_admin");
+    expect(sessionStorage.getItem("mindsahaay_demo_role")).toBe("institution_admin");
+    expect(localStorage.getItem("mindsahaay_demo_role")).toBeNull();
   });
 });

@@ -9,7 +9,7 @@ import { createVault, generateRecoveryCode, lockVault } from "../../../features/
 
 beforeEach(async () => {
   localStorage.clear();
-  localStorage.setItem("mindsahaay_demo_mode", "true");
+  sessionStorage.setItem("mindsahaay_demo_mode", "true"); // the preview flag is session-scoped
   lockVault();
   await clearAllOutboxDbs();
 });

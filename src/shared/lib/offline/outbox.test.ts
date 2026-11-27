@@ -100,7 +100,7 @@ beforeEach(async () => {
   fakeSupabase.reset();
   mockConsentsState = { crisis_intervention: true };
   localStorage.clear();
-  localStorage.setItem("mindsahaay_demo_mode", "true");
+  sessionStorage.setItem("mindsahaay_demo_mode", "true"); // the preview flag is session-scoped
   lockVault();
   await clearAllOutboxDbs();
 });

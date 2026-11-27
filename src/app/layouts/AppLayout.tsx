@@ -15,6 +15,7 @@ import { audioEngine } from "../../audio/EnhancedAudioEngine";
 import { SyncChip, OfflineBanner, UpdateToast, useLogoutGuard } from "../../features/offline-ui";
 import { initOutbox } from "../../shared/lib/offline";
 import { warmCrisisConsentCache } from "../../features/chat/api";
+import { fetchReminders } from "../../features/doctors/api";
 import type { UserProfile as MockUserProfile } from "../../shared/data/mockData";
 
 export default function AppLayout() {
@@ -111,12 +112,26 @@ export default function AppLayout() {
     navigate(`/${navId}`);
   };
 
+  const [hasUnread, setHasUnread] = useState(false);
+  useEffect(() => {
+    if (isDemo || !user?.id) return;
+    fetchReminders()
+      .then((rems) => {
+        setHasUnread(rems.some((r) => !r.read));
+      })
+      .catch(() => {});
+  }, [isDemo, user?.id]);
+
   // Format user profile for Header
+  const userInitials = (activeProfile?.alias || user?.email?.split("@")[0] || "ST")
+    .slice(0, 2)
+    .toUpperCase();
+
   const headerUser: MockUserProfile = {
-    name: activeProfile?.alias || user?.email?.split("@")[0] || "Student",
-    email: user?.email || "student@du.ac.in",
+    name: activeProfile?.alias || user?.email?.split("@")[0] || (isDemo ? "Student" : "Campus Student"),
+    email: user?.email || (isDemo ? "student@du.ac.in" : ""),
     institution: activeProfile?.institution_id ? "Delhi University" : "Campus Student",
-    initials: (activeProfile?.alias || "AS").slice(0, 2).toUpperCase(),
+    initials: userInitials,
   };
 
   return (
@@ -150,6 +165,7 @@ export default function AppLayout() {
             openNotification={() => setActiveModal("notification")}
             openSettings={() => navigate("/settings")}
             openSafetyCard={() => setActiveModal("safetyCard")}
+            hasUnread={hasUnread}
           />
 
           <div className="offline-ui-strip">

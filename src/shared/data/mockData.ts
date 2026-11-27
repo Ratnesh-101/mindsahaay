@@ -1,3 +1,9 @@
+/**
+ * OFFLINE DEMO PREVIEW DATA ONLY.
+ * This mock data is strictly scoped for offline preview mode (e.g. DemoDoctorsView, DemoJournalView)
+ * and must NEVER be imported or displayed in real signed-in student views or the main Dashboard.
+ */
+
 export interface UserProfile {
   name: string;
   email: string;
