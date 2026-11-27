@@ -54,6 +54,13 @@ describe("Chat: labelling, streaming and degraded mode", () => {
     expect(screen.queryByTestId("degraded-banner")).not.toBeInTheDocument();
   });
 
+  it("makes the chat log scrollable region keyboard-focusable with an accessible label", () => {
+    render(<Chat studentId="user-1" />);
+    const log = screen.getByRole("log", { name: "Conversation with MindMate" });
+    expect(log).toHaveAttribute("tabindex", "0");
+    expect(log).toHaveClass("chat-body");
+  });
+
   it("shows a degraded-mode banner when the API is unreachable", async () => {
     spyFetch(() => {
       throw new TypeError("Failed to fetch");
@@ -79,7 +86,8 @@ describe("Chat: labelling, streaming and degraded mode", () => {
 
   it("says plainly that the conversation is not saved", () => {
     render(<Chat studentId="user-1" />);
-    expect(screen.getByTestId("chat-not-saved")).toHaveTextContent("does not save this conversation");
+    expect(screen.getByTestId("chat-not-saved")).toHaveTextContent("This conversation is not being saved");
+    expect(screen.getByTestId("chat-locked-banner")).toHaveTextContent("Unlock your vault to save and see past conversations");
   });
 
   it("puts an unsent message back in the box so it can be retried", async () => {

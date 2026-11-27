@@ -47,6 +47,28 @@
       "paused": "Chat is paused while you look at the support options above.",
       "pinned": "This support card stays visible for the rest of this session."
     },
-    "notSaved": "MindSahaay does not save this conversation. It disappears when you reload or leave this page, so you will not see it again."
+    "notSaved": "Saved for 30 days, encrypted with your vault passphrase. MindSahaay staff and counsellors cannot read it. Each message is still sent to our AI provider to write a reply.",
+    "lockedBanner": "Unlock your vault to save and see past conversations. This conversation is not being saved.",
+    "dontSaveToggle": "Don't save this conversation",
+    "notSavedThisConvo": "This conversation is not being saved.",
+    "demoNotice": "Preview mode: conversations are not saved.",
+    "notSavedYet": "Not saved yet",
+    "pastConversations": "Past conversations",
+    "noPastConversations": "No past conversations yet.",
+    "pastChatsTitle": "Saved Conversations",
+    "closeHistory": "Close",
+    "openPastChat": "Open",
+    "newChat": "New chat",
+    "deleteConvo": "Delete conversation",
+    "deleteConvoConfirm": "Are you sure you want to delete this conversation? This cannot be undone.",
+    "deleteAllChats": "Delete all chats",
+    "deleteAllChatsConfirm": "Are you sure you want to delete all saved conversations? This cannot be undone.",
+    "deleteConfirm": "Yes, delete",
+    "deleteCancel": "Cancel",
+    "deletedNotice": "Conversation deleted.",
+    "allDeletedNotice": "All conversations deleted.",
+    "messagesCount": "{{count}} messages",
+    "messagesCount_one": "1 message",
+    "messagesCount_other": "{{count}} messages"
   }
 }

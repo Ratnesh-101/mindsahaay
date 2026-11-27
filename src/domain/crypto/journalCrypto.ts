@@ -86,7 +86,7 @@ function getCrypto(): Crypto {
 /**
  * Derives an AES-GCM 256-bit CryptoKey from a user passphrase and salt using PBKDF2 with 600,000 iterations.
  */
-async function deriveEncryptionKey(
+export async function deriveEncryptionKey(
   passphrase: string,
   salt: Uint8Array,
   iterations: number = PBKDF2_ITERATIONS,

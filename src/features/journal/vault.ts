@@ -11,6 +11,7 @@ import {
   JournalCryptoError,
 } from "../../domain/crypto/journalCrypto";
 import { isDemoModeActive } from "../auth/demoMode";
+import { clearChatKeys } from "../chat/chatCrypto";
 import { migrateSensitiveStorage } from "../../shared/lib/storage/secureStore";
 
 /**
@@ -59,11 +60,13 @@ export function getVaultPassphrase(): string | null {
 
 export function lockVault(): void {
   currentPassphrase = null;
+  clearChatKeys();
   emit();
 }
 
 export function clearVaultState(): void {
   currentPassphrase = null;
+  clearChatKeys();
   demoVaultMeta = null;
   emit();
 }
