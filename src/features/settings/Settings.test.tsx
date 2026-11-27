@@ -9,6 +9,8 @@ import * as AuthModule from "../../app/providers/AuthProvider";
 import * as DemoModule from "../auth/demoMode";
 import * as AccountApiModule from "../../shared/lib/api/account";
 import * as SecureStoreModule from "../../shared/lib/storage/secureStore";
+import * as ConsentsApiModule from "../../shared/lib/api/consents";
+import type { ConsentRecord } from "../../shared/lib/api/consents";
 import type { User } from "@supabase/supabase-js";
 
 describe("Settings & Student Rights", () => {
@@ -185,5 +187,201 @@ describe("Settings & Student Rights", () => {
     expect(clearAllSpy).not.toHaveBeenCalled();
     expect(mockSignOut).not.toHaveBeenCalled();
     expect(localStorage.getItem("mindsahaay-habit-streak")).toBe("5");
+  });
+
+  it("in authenticated real mode: exports real consents from backend ledger", async () => {
+    vi.spyOn(DemoModule, "isDemoModeActive").mockReturnValue(false);
+
+    const mockRealConsents: ConsentRecord[] = [
+      {
+        id: "consent-rec-1",
+        student_id: "user-1",
+        purpose: "data_processing",
+        consented: true,
+        policy_version: "2023.1-DPDP",
+        granted_at: "2026-11-27T10:00:00Z",
+      },
+      {
+        id: "consent-rec-2",
+        student_id: "user-1",
+        purpose: "counsellor_sharing",
+        consented: false,
+        policy_version: "2023.1-DPDP",
+        granted_at: "2026-11-27T10:05:00Z",
+      },
+    ];
+
+    const fetchLedgerSpy = vi.spyOn(ConsentsApiModule, "fetchConsentLedger").mockResolvedValue(mockRealConsents);
+    const exportStudentSpy = vi.spyOn(AccountApiModule, "exportStudentData").mockResolvedValue({
+      metadata: {
+        platform: "MindSahaay Student Wellbeing",
+        exportedAt: "2026-11-27T10:10:00Z",
+        regulations: "India DPDP Act 2023 & Mental Healthcare Act 2017",
+        studentId: "user-1",
+      },
+      profile: { id: "user-1", alias: "Aarav" },
+      consents: [],
+      moods: [],
+      assessments: [],
+      journals: [],
+      safetyPlan: null,
+      appointments: [],
+    });
+
+    let exportedPayload: Record<string, unknown> | null = null;
+    const createObjectURLSpy = vi.spyOn(URL, "createObjectURL").mockImplementation((blob: Blob | MediaSource) => {
+      if (blob instanceof Blob) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          exportedPayload = JSON.parse(reader.result as string);
+        };
+        reader.readAsText(blob);
+      }
+      return "blob:fake-url";
+    });
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+
+    renderSettings();
+
+    const exportBtn = screen.getByRole("button", { name: /Export My Data Archive/i });
+    fireEvent.click(exportBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Archive downloaded successfully/i)).toBeInTheDocument();
+    });
+
+    expect(fetchLedgerSpy).toHaveBeenCalled();
+    expect(exportStudentSpy).toHaveBeenCalled();
+    expect(createObjectURLSpy).toHaveBeenCalled();
+    expect(screen.queryByTestId("export-error-alert")).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(exportedPayload).not.toBeNull();
+      expect(exportedPayload?.consents).toEqual(mockRealConsents);
+    });
+  });
+
+  it("in authenticated real mode: fails loudly with visible role=alert when consent ledger cannot be loaded and produces no download", async () => {
+    vi.spyOn(DemoModule, "isDemoModeActive").mockReturnValue(false);
+
+    vi.spyOn(ConsentsApiModule, "fetchConsentLedger").mockRejectedValue(new Error("Database connection refused"));
+    vi.spyOn(AccountApiModule, "exportStudentData").mockResolvedValue({
+      metadata: {
+        platform: "MindSahaay Student Wellbeing",
+        exportedAt: "2026-11-27T10:10:00Z",
+        regulations: "India DPDP Act 2023 & Mental Healthcare Act 2017",
+        studentId: "user-1",
+      },
+      profile: { id: "user-1", alias: "Aarav" },
+      consents: [],
+      moods: [],
+      assessments: [],
+      journals: [],
+      safetyPlan: null,
+      appointments: [],
+    });
+
+    const createObjectURLSpy = vi.spyOn(URL, "createObjectURL");
+
+    renderSettings();
+
+    const exportBtn = screen.getByRole("button", { name: /Export My Data Archive/i });
+    fireEvent.click(exportBtn);
+
+    const alert = await screen.findByTestId("export-error-alert");
+    expect(alert).toBeInTheDocument();
+    expect(alert.getAttribute("role")).toBe("alert");
+    expect(alert).toHaveTextContent(/could not load your consent records/i);
+
+    expect(createObjectURLSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Archive downloaded successfully/i)).not.toBeInTheDocument();
+  });
+
+  it("in authenticated real mode: fails loudly with visible role=alert when exportStudentData fails and produces no download", async () => {
+    vi.spyOn(DemoModule, "isDemoModeActive").mockReturnValue(false);
+
+    vi.spyOn(ConsentsApiModule, "fetchConsentLedger").mockResolvedValue([]);
+    vi.spyOn(AccountApiModule, "exportStudentData").mockRejectedValue(new Error("Storage query error"));
+
+    const createObjectURLSpy = vi.spyOn(URL, "createObjectURL");
+
+    renderSettings();
+
+    const exportBtn = screen.getByRole("button", { name: /Export My Data Archive/i });
+    fireEvent.click(exportBtn);
+
+    const alert = await screen.findByTestId("export-error-alert");
+    expect(alert).toBeInTheDocument();
+    expect(alert.getAttribute("role")).toBe("alert");
+    expect(createObjectURLSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Archive downloaded successfully/i)).not.toBeInTheDocument();
+  });
+
+  it("in preview/demo mode: reads nothing from localStorage for data export", async () => {
+    vi.spyOn(DemoModule, "isDemoModeActive").mockReturnValue(true);
+
+    sessionStorage.setItem("mindsahaay_demo_consents", JSON.stringify({ data_processing: true, research: true }));
+    localStorage.setItem("mindsahaay_demo_consents", JSON.stringify({ data_processing: false, forbidden: true }));
+
+    const localStorageKeys: string[] = [];
+    const origGetItem = Storage.prototype.getItem;
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, key: string) {
+      if (this === localStorage) {
+        localStorageKeys.push(key);
+      }
+      return origGetItem.call(this, key);
+    });
+
+    let exportedPayload: Record<string, unknown> | null = null;
+    vi.spyOn(URL, "createObjectURL").mockImplementation((blob: Blob | MediaSource) => {
+      if (blob instanceof Blob) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          exportedPayload = JSON.parse(reader.result as string);
+        };
+        reader.readAsText(blob);
+      }
+      return "blob:fake-url";
+    });
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+
+    renderSettings();
+
+    // Clear any initial render calls (e.g. theme from localStorage)
+    localStorageKeys.length = 0;
+
+    const exportBtn = screen.getByRole("button", { name: /Export My Data Archive/i });
+    fireEvent.click(exportBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Archive downloaded successfully/i)).toBeInTheDocument();
+    });
+
+    expect(localStorageKeys).not.toContain("mindsahaay_demo_consents");
+    expect(localStorageKeys).not.toContain("mindsahaay_demo_moods");
+    expect(localStorageKeys).not.toContain("mindsahaay_demo_safety_plan");
+
+    await waitFor(() => {
+      expect(exportedPayload).not.toBeNull();
+      expect(exportedPayload?.consents).toEqual({ data_processing: true, research: true });
+    });
+  });
+
+  it("in Hindi locale: shows plain, correct Hindi alert on export failure", async () => {
+    vi.spyOn(DemoModule, "isDemoModeActive").mockReturnValue(false);
+    vi.spyOn(ConsentsApiModule, "fetchConsentLedger").mockRejectedValue(new Error("Network failure"));
+
+    renderSettings();
+
+    const hindiBtn = screen.getByRole("button", { name: "हिंदी (Hindi)" });
+    fireEvent.click(hindiBtn);
+
+    const exportBtn = screen.getByRole("button", { name: /Export My Data Archive/i });
+    fireEvent.click(exportBtn);
+
+    const alert = await screen.findByTestId("export-error-alert");
+    expect(alert).toBeInTheDocument();
+    expect(alert.getAttribute("role")).toBe("alert");
+    expect(alert).toHaveTextContent("हम आपके सहमति रिकॉर्ड या वेलबीइंग डेटा लोड नहीं कर सके, इसलिए कोई संग्रह डाउनलोड नहीं हुआ। कृपया अपना कनेक्शन जाँचकर फिर कोशिश करें।");
   });
 });

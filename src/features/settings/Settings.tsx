@@ -7,9 +7,14 @@ import { exportStudentData, deleteStudentAccount } from "../../shared/lib/api/ac
 import { useAuth } from "../../app/providers/AuthProvider";
 import { isDemoModeActive, getDemoProfile } from "../auth/demoMode";
 import { clearAllLocalUserData, getSecureItemSync } from "../../shared/lib/storage/secureStore";
+import { fetchConsentLedger } from "../../shared/lib/api/consents";
+import { CONTENT_NS } from "../journal/registerBundle";
+import { DemoDataPanel } from "../demo-data";
+import "./i18n";
 
 export default function Settings() {
   const { i18n } = useTranslation();
+  const { t: tc } = useTranslation(CONTENT_NS);
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -44,14 +49,23 @@ export default function Settings() {
   // Data Export state
   const [exporting, setExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const handleExport = async () => {
     setExporting(true);
     setExportSuccess(false);
+    setExportError(null);
     try {
       let exportData: Record<string, unknown>;
       if (!isDemo) {
-        exportData = (await exportStudentData()) as unknown as Record<string, unknown>;
+        const [realConsents, studentData] = await Promise.all([
+          fetchConsentLedger(),
+          exportStudentData(),
+        ]);
+        exportData = {
+          ...studentData,
+          consents: realConsents,
+        };
       } else {
         exportData = {
           metadata: {
@@ -61,12 +75,19 @@ export default function Settings() {
             studentId: currentProfile?.id || "demo-student-id",
           },
           profile: currentProfile,
-          consents: JSON.parse(localStorage.getItem("mindsahaay_demo_consents") || "{}"),
+          consents: (() => {
+            try {
+              const raw = sessionStorage.getItem("mindsahaay_demo_consents");
+              return raw ? JSON.parse(raw) : {};
+            } catch {
+              return {};
+            }
+          })(),
           moods: (() => {
             const res = getSecureItemSync<unknown[]>("demo_moods");
             if (res.status === "unlocked" && res.value) return res.value;
             try {
-              return JSON.parse(localStorage.getItem("mindsahaay_demo_moods") || "[]");
+              return JSON.parse(sessionStorage.getItem("mindsahaay_demo_moods") || "[]");
             } catch {
               return [];
             }
@@ -75,7 +96,7 @@ export default function Settings() {
             const res = getSecureItemSync<unknown>("demo_safety_plan");
             if (res.status === "unlocked" && res.value) return res.value;
             try {
-              return JSON.parse(localStorage.getItem("mindsahaay_demo_safety_plan") || "{}");
+              return JSON.parse(sessionStorage.getItem("mindsahaay_demo_safety_plan") || "{}");
             } catch {
               return {};
             }
@@ -106,7 +127,7 @@ export default function Settings() {
       setExportSuccess(true);
       setTimeout(() => setExportSuccess(false), 4000);
     } catch {
-      alert("Failed to export data. Please check connection.");
+      setExportError(tc("settings.exportFailed"));
     } finally {
       setExporting(false);
     }
@@ -278,10 +299,22 @@ export default function Settings() {
             ✓ Archive downloaded successfully.
           </p>
         )}
+        {exportError && (
+          <p
+            role="alert"
+            data-testid="export-error-alert"
+            style={{ color: "var(--danger)", fontWeight: 600, marginTop: 8 }}
+          >
+            {exportError}
+          </p>
+        )}
         <p className="muted" style={{ fontSize: 13, marginTop: 10, lineHeight: 1.5 }}>
           <strong>Zero-Knowledge Note:</strong> Personal journals are exported as encrypted ciphertext only (AES-256-GCM). MindSahaay servers never hold your decryption passphrase.
         </p>
       </section>
+
+      {/* 4b. Demo data (sample rows; only ever created by the button) */}
+      <DemoDataPanel variant="card" />
 
       {/* 5. Right to Erasure (Delete Account) */}
       <section className="panel" style={{ border: "1px solid var(--danger)", background: "color-mix(in oklch, var(--danger) 4%, var(--white))" }}>

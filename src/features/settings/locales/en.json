@@ -1,0 +1,6 @@
+{
+  "settings": {
+    "exportFailed": "We could not load your consent records or wellbeing data, so no archive was downloaded. Please check your connection and try again.",
+    "exportSuccess": "Archive downloaded successfully."
+  }
+}
