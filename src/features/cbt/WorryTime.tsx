@@ -2,27 +2,21 @@ import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import "./i18n";
 import { CONTENT_NS } from "../journal/registerBundle";
-import { fieldClass, hintClass, labelClass } from "../journal/ui";
+import { fieldClass, errorClass, hintClass, labelClass } from "../journal/ui";
 import Icon from "../../shared/ui/Icon";
-import { useVaultPassphrase } from "../journal/vault";
 import VaultGate from "../journal/VaultGate";
-import { toOpaqueKey } from "../../shared/lib/storage/secureStore";
 import { DEFAULT_WORRY, WORRY_KEY, WorryStateSchema, loadLocal, nextOccurrence, saveLocal, type WorryState } from "./storage";
 
+/**
+ * Worry time is stored encrypted on this device only, under the vault passphrase, so it is always
+ * behind the vault gate. Without it a locked vault would silently drop what was typed.
+ */
 export default function WorryTime() {
-  const passphrase = useVaultPassphrase();
-  const hasEncryptedData = Boolean(
-    typeof localStorage !== "undefined" && localStorage.getItem(toOpaqueKey("cbt_worry"))
+  return (
+    <VaultGate>
+      <WorryTimeContent />
+    </VaultGate>
   );
-
-  if (!passphrase && hasEncryptedData) {
-    return (
-      <VaultGate>
-        <WorryTimeContent />
-      </VaultGate>
-    );
-  }
-  return <WorryTimeContent />;
 }
 
 function WorryTimeContent() {
@@ -32,23 +26,41 @@ function WorryTimeContent() {
   const [duration, setDuration] = useState(state.duration);
   const [worry, setWorry] = useState("");
   const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const commit = (next: WorryState) => {
+  /** Saves the new state, and shows it only once it is really stored. Returns false (and says so) otherwise. */
+  const commit = async (next: WorryState): Promise<boolean> => {
+    setSaving(true);
+    const ok = await saveLocal(WORRY_KEY, next);
+    setSaving(false);
+    if (!ok) {
+      setStatus("");
+      setError(t("cbt.worry.saveError"));
+      return false;
+    }
     setState(next);
-    saveLocal(WORRY_KEY, next);
+    setError("");
+    return true;
   };
 
-  const saveSchedule = (e: React.FormEvent) => {
+  const saveSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    commit({ ...state, time, duration });
-    setStatus(t("cbt.worry.scheduleSaved"));
+    if (saving) return;
+    setStatus("");
+    const ok = await commit({ ...state, time, duration });
+    if (ok) setStatus(t("cbt.worry.scheduleSaved"));
   };
 
-  const park = (e: React.FormEvent) => {
+  const park = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!worry.trim()) return;
-    commit({ ...state, parked: [...state.parked, { id: crypto.randomUUID(), text: worry.trim() }] });
-    setWorry("");
+    if (!worry.trim() || saving) return;
+    setStatus("");
+    const ok = await commit({ ...state, parked: [...state.parked, { id: crypto.randomUUID(), text: worry.trim() }] });
+    if (ok) {
+      setWorry("");
+      setStatus(t("cbt.worry.parkedSaved"));
+    }
   };
 
   const next = state.time ? nextOccurrence(state.time) : null;
@@ -81,12 +93,17 @@ function WorryTimeContent() {
               />
             </div>
           </div>
-          <button type="submit" className="primary-btn min-h-11">
+          <button type="submit" className="primary-btn min-h-11" disabled={saving}>
             {t("cbt.worry.saveSchedule")}
           </button>
-          <p role="status" className="text-[13px] text-[var(--primary)]">
+          <p role="status" aria-live="polite" className="text-[13px] text-[var(--primary)]">
             {status}
           </p>
+          {error && (
+            <p role="alert" className={errorClass}>
+              {error}
+            </p>
+          )}
         </form>
         <p className="text-sm font-semibold" data-testid="worry-next">
           {next
@@ -108,7 +125,7 @@ function WorryTimeContent() {
             placeholder={t("cbt.worry.parkPlaceholder")}
             onChange={(e) => setWorry(e.target.value)}
           />
-          <button type="submit" className="outline-btn min-h-11">
+          <button type="submit" className="outline-btn min-h-11" disabled={saving}>
             <Icon name="plus" size={16} /> {t("cbt.worry.park")}
           </button>
         </form>
@@ -125,7 +142,12 @@ function WorryTimeContent() {
                 className="icon-btn"
                 style={{ width: 32, height: 32, border: "none" }}
                 aria-label={t("cbt.worry.remove", { text: p.text })}
-                onClick={() => commit({ ...state, parked: state.parked.filter((x) => x.id !== p.id) })}
+                disabled={saving}
+                onClick={async () => {
+                  setStatus("");
+                  const ok = await commit({ ...state, parked: state.parked.filter((x) => x.id !== p.id) });
+                  if (ok) setStatus(t("cbt.worry.removedSaved"));
+                }}
               >
                 <Icon name="x" size={14} />
               </button>

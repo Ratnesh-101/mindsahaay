@@ -34,7 +34,9 @@
       "cancelDelete": "Keep it",
       "shift": "Feeling moved from {{before}} to {{after}}",
       "crisisTitle": "It sounds like things are very heavy right now",
-      "crisisBody": "Your record stays encrypted on your side. Please reach out to one of these free, confidential helplines, available 24/7:"
+      "crisisBody": "Your record stays encrypted on your side. Please reach out to one of these free, confidential helplines, available 24/7:",
+      "deleted": "Thought record deleted.",
+      "deleteError": "We could not delete this record, so it is still saved. Please try again."
     },
     "distortion": {
       "allOrNothing": "All-or-nothing thinking",
@@ -69,7 +71,10 @@
       "done": "Done",
       "delete": "Remove {{name}}",
       "change": "Mood {{before}} to {{after}}",
-      "required": "Please name the activity and pick a time."
+      "required": "Please name the activity and pick a time.",
+      "saved": "Saved on this device.",
+      "removed": "Activity removed from this device.",
+      "saveError": "We could not save this on your device, so it was not saved. Your browser may be blocking storage. Please try again."
     },
     "worry": {
       "title": "Worry-time scheduler",
@@ -86,7 +91,10 @@
       "parkedTitle": "Parked worries ({{count}})",
       "parkedEmpty": "No parked worries.",
       "remove": "Let go of: {{text}}",
-      "reviewHint": "At worry time, ask of each one: can I do something about it? If yes, plan one step. If no, practise letting it go."
+      "reviewHint": "At worry time, ask of each one: can I do something about it? If yes, plan one step. If no, practise letting it go.",
+      "parkedSaved": "Worry parked and saved on this device.",
+      "removedSaved": "Worry removed from this device.",
+      "saveError": "We could not save this on your device, so it was not saved. Your browser may be blocking storage. Please try again."
     }
   },
   "tools": {
@@ -105,7 +113,7 @@
       "pause": "Pause",
       "resume": "Resume",
       "finish": "Finish reset",
-    "complete": "Well done. You finished all the cycles.",
+      "complete": "Well done. You finished all the cycles.",
       "tryGrounding": "Try 5-4-3-2-1 sensory grounding instead",
       "reducedMotion": "Reduced motion is on, so the circle stays still. Follow the words and numbers.",
       "medical": "If breath-holding makes you dizzy, breathe normally and stop. This is a relaxation exercise, not medical advice."

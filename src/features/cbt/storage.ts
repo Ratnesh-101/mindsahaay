@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   isVaultLocked,
   getSecureItemSync,
-  setSecureItemSync,
+  setSecureItem,
   clearAllLocalUserData,
 } from "../../shared/lib/storage/secureStore";
 
@@ -62,19 +62,23 @@ export function loadLocal<T>(key: string, schema: z.ZodType<T>, fallback: T): T 
 }
 
 /**
- * Persists value into zero-knowledge AES-256-GCM secure storage.
+ * Persists value into zero-knowledge AES-256-GCM secure storage and resolves true only when the
+ * encrypted copy was really written to this device. Resolves false when the vault is locked or the
+ * browser refused the write, so callers can say plainly that nothing was saved.
  * Ensures plaintext key is never retained in localStorage.
  */
-export function saveLocal(key: string, value: unknown): void {
+export async function saveLocal(key: string, value: unknown): Promise<boolean> {
   const logical = resolveLogicalKey(key);
-  setSecureItemSync(logical, value);
+  const result = await setSecureItem(logical, value);
+  if (result.status !== "ok") return false;
   try {
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(key);
     }
   } catch {
-    // ignore
+    // The legacy plaintext key could not be removed; the encrypted copy is still saved.
   }
+  return true;
 }
 
 /**

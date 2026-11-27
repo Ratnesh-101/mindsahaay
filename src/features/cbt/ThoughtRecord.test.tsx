@@ -1,18 +1,18 @@
 import React from "react";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("../../shared/lib/supabase", async () => (await import("../journal/testSupport")).supabaseModule());
 
 import { fake, resetFake, setupI18n } from "../journal/testSupport";
-import { createVault, generateRecoveryCode, lockVault } from "../journal/vault";
+import { createVault, generateRecoveryCode, lockVault, readVaultMeta, unlockVault } from "../journal/vault";
 import { decryptJournal } from "../../domain/crypto/journalCrypto";
 import CbtToolkit from "./CbtToolkit";
 import ThoughtRecord from "./ThoughtRecord";
 import { ACTIVITY_KEY, WORRY_KEY, clearCbtLocalData, nextOccurrence } from "./storage";
 import { deleteThoughtRecord, fetchThoughtRecords, saveThoughtRecord } from "./api";
-import { toOpaqueKey } from "../../shared/lib/storage/secureStore";
+import { clearSecureStoreMemory, toOpaqueKey } from "../../shared/lib/storage/secureStore";
 
 const PASS = "correct horse battery";
 
@@ -23,6 +23,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   resetFake();
   lockVault();
+  clearSecureStoreMemory();
   localStorage.clear();
 });
 
@@ -151,7 +152,7 @@ describe("CBT toolkit tabs, activity planner and worry time", () => {
 
     fireEvent.change(screen.getByLabelText(/Mood after/), { target: { value: "8" } });
     await user.click(screen.getByRole("button", { name: "Mark done" }));
-    expect(screen.getByText(/Mood 4 to 8/)).toBeInTheDocument();
+    expect(await screen.findByText(/Mood 4 to 8/)).toBeInTheDocument();
 
     // Plaintext legacy key must NEVER exist
     expect(localStorage.getItem(ACTIVITY_KEY)).toBeNull();
@@ -165,7 +166,7 @@ describe("CBT toolkit tabs, activity planner and worry time", () => {
     expect(payload.ciphertext).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: /Remove 15-minute walk/ }));
-    expect(screen.getByText(/Nothing planned yet/)).toBeInTheDocument();
+    expect(await screen.findByText(/Nothing planned yet/)).toBeInTheDocument();
   });
 
   it("restores a saved plan after a reload via automatic plaintext migration", async () => {
@@ -204,10 +205,10 @@ describe("CBT toolkit tabs, activity planner and worry time", () => {
 
     await user.type(screen.getByLabelText("Park a worry for later"), "Placement results");
     await user.click(screen.getByRole("button", { name: "Park it" }));
-    expect(screen.getByText("Placement results")).toBeInTheDocument();
+    expect(await screen.findByText("Placement results")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Parked worries (1)" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Let go of: Placement results" }));
-    expect(screen.getByText("No parked worries.")).toBeInTheDocument();
+    expect(await screen.findByText("No parked worries.")).toBeInTheDocument();
   });
 
   it("moves between tabs with the arrow keys", async () => {
@@ -245,5 +246,124 @@ describe("CBT storage helpers", () => {
     expect(screen.getByText(/Nothing planned yet/)).toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: "Worry time" }));
     expect(screen.getByTestId("worry-next")).toHaveTextContent("No worry time set yet.");
+  });
+});
+
+/** Simulates a page reload: the in-memory passphrase and decrypted cache are gone, storage and backend stay. */
+async function reloadAndUnlock() {
+  clearSecureStoreMemory();
+  lockVault();
+  const meta = await readVaultMeta();
+  if (!meta) throw new Error("vault meta missing");
+  await unlockVault(PASS, meta);
+}
+
+describe("Persistence across a reload (U3 audit)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("a thought record is still there after a reload once the vault is unlocked again", { timeout: 60000 }, async () => {
+    await unlocked();
+    const user = userEvent.setup();
+    const first = render(<ThoughtRecord />);
+    await fillRecord(user);
+    await user.click(screen.getByRole("button", { name: "Save encrypted record" }));
+    await screen.findByText("Thought record encrypted and saved.");
+    first.unmount();
+
+    await reloadAndUnlock();
+    render(<ThoughtRecord />);
+    expect(await screen.findByRole("heading", { name: "They think I am useless" })).toBeInTheDocument();
+  });
+
+  it("a failed thought-record save shows an alert, no success message, and keeps what was typed", { timeout: 60000 }, async () => {
+    await unlocked();
+    const user = userEvent.setup();
+    render(<ThoughtRecord />);
+    await fillRecord(user);
+    fake.signedIn = false; // the backend refuses the write
+    await user.click(screen.getByRole("button", { name: "Save encrypted record" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("could not save");
+    expect(screen.queryByText("Thought record encrypted and saved.")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/^Situation/)).toHaveValue("Group project meeting went quiet");
+    expect(fake.tables.thought_records ?? []).toHaveLength(0);
+  });
+
+  it("the CBT tools ask for the vault after a reload instead of looking empty", async () => {
+    await unlocked();
+    const user = userEvent.setup();
+    const first = render(<CbtToolkit />);
+    await user.click(screen.getByRole("tab", { name: "Activity planner" }));
+    await user.type(screen.getByLabelText("Activity"), "Evening walk");
+    fireEvent.change(screen.getByLabelText("Planned for"), { target: { value: "2026-06-01T19:00" } });
+    await user.click(screen.getByRole("button", { name: "Add to plan" }));
+    await screen.findByText("Saved on this device.");
+    first.unmount();
+
+    clearSecureStoreMemory();
+    lockVault();
+    render(<CbtToolkit />);
+    await user.click(screen.getByRole("tab", { name: "Activity planner" }));
+    expect(await screen.findByRole("heading", { name: "Unlock your private vault" })).toBeInTheDocument();
+    expect(screen.getByTestId("vault-locked-note")).toHaveTextContent("Nothing has been lost");
+    expect(screen.queryByText(/Nothing planned yet/)).not.toBeInTheDocument();
+  });
+
+  it("an activity and parked worry are still there after a reload and unlock", async () => {
+    await unlocked();
+    const user = userEvent.setup();
+    const first = render(<CbtToolkit />);
+    await user.click(screen.getByRole("tab", { name: "Activity planner" }));
+    await user.type(screen.getByLabelText("Activity"), "Evening walk");
+    fireEvent.change(screen.getByLabelText("Planned for"), { target: { value: "2026-06-01T19:00" } });
+    await user.click(screen.getByRole("button", { name: "Add to plan" }));
+    await screen.findByText("Saved on this device.");
+    await user.click(screen.getByRole("tab", { name: "Worry time" }));
+    await user.type(screen.getByLabelText("Park a worry for later"), "Internship email");
+    await user.click(screen.getByRole("button", { name: "Park it" }));
+    await screen.findByText("Worry parked and saved on this device.");
+    first.unmount();
+
+    await reloadAndUnlock();
+    render(<CbtToolkit />);
+    await user.click(screen.getByRole("tab", { name: "Activity planner" }));
+    expect(await screen.findByRole("heading", { name: "Evening walk" })).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Worry time" }));
+    expect(await screen.findByText("Internship email")).toBeInTheDocument();
+  });
+
+  it("when the device refuses to store an activity: alert, no success, list unchanged, input kept", async () => {
+    await unlocked();
+    const user = userEvent.setup();
+    render(<CbtToolkit />);
+    await user.click(screen.getByRole("tab", { name: "Activity planner" }));
+    await user.type(screen.getByLabelText("Activity"), "Evening walk");
+    fireEvent.change(screen.getByLabelText("Planned for"), { target: { value: "2026-06-01T19:00" } });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    await user.click(screen.getByRole("button", { name: "Add to plan" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("was not saved");
+    expect(screen.queryByText("Saved on this device.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Evening walk" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Activity")).toHaveValue("Evening walk");
+  });
+
+  it("when the device refuses to store worry time: alert and no 'saved' message", async () => {
+    await unlocked();
+    const user = userEvent.setup();
+    render(<CbtToolkit />);
+    await user.click(screen.getByRole("tab", { name: "Worry time" }));
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    await user.type(screen.getByLabelText("Park a worry for later"), "Hostel fees");
+    await user.click(screen.getByRole("button", { name: "Park it" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("was not saved");
+    expect(screen.getByLabelText("Park a worry for later")).toHaveValue("Hostel fees");
+    await user.click(screen.getByRole("button", { name: "Save schedule" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("was not saved");
+    expect(screen.queryByText("Worry time saved.")).not.toBeInTheDocument();
   });
 });

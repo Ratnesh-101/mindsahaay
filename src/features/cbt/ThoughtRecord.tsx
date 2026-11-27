@@ -40,13 +40,20 @@ export default function ThoughtRecord() {
   const [error, setError] = useState("");
   const [crisis, setCrisis] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const load = useCallback(async () => {
     if (!passphrase) return;
+    setLoading(true);
     try {
       setRecords(await fetchThoughtRecords(passphrase));
+      setLoadFailed(false);
     } catch {
+      setLoadFailed(true);
       setError(t("cbt.thought.loadError"));
+    } finally {
+      setLoading(false);
     }
   }, [passphrase, t]);
 
@@ -89,11 +96,14 @@ export default function ThoughtRecord() {
   };
 
   const remove = async (id: string) => {
+    setError("");
+    setStatus("");
     try {
       await deleteThoughtRecord(id);
       setRecords((prev) => prev.filter((r) => r.id !== id));
+      setStatus(t("cbt.thought.deleted"));
     } catch {
-      setError(t("cbt.thought.saveError"));
+      setError(t("cbt.thought.deleteError"));
     } finally {
       setPendingDelete(null);
     }
@@ -251,7 +261,12 @@ export default function ThoughtRecord() {
             </article>
           );
         })}
-        {records.length === 0 && <p className="muted py-4">{t("cbt.thought.empty")}</p>}
+        {loading && (
+          <p className="muted" role="status">
+            {t("common.loading")}
+          </p>
+        )}
+        {records.length === 0 && !loading && !loadFailed && <p className="muted py-4">{t("cbt.thought.empty")}</p>}
       </section>
     </div>
   );

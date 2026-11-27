@@ -7,27 +7,21 @@ import Icon from "../../shared/ui/Icon";
 import { ACTIVITY_KEY, ActivitySchema, loadLocal, saveLocal, type Activity } from "./storage";
 import { z } from "zod";
 
-import { useVaultPassphrase } from "../journal/vault";
 import VaultGate from "../journal/VaultGate";
-import { toOpaqueKey } from "../../shared/lib/storage/secureStore";
 
 const ListSchema = z.array(ActivitySchema);
 const CATEGORIES = ["pleasure", "mastery", "social"] as const;
 
+/**
+ * Activities are stored encrypted on this device only, under the vault passphrase. The planner is
+ * therefore always behind the vault gate: without it a locked vault would silently drop what was typed.
+ */
 export default function ActivityPlanner() {
-  const passphrase = useVaultPassphrase();
-  const hasEncryptedData = Boolean(
-    typeof localStorage !== "undefined" && localStorage.getItem(toOpaqueKey("cbt_activities"))
+  return (
+    <VaultGate>
+      <ActivityPlannerContent />
+    </VaultGate>
   );
-
-  if (!passphrase && hasEncryptedData) {
-    return (
-      <VaultGate>
-        <ActivityPlannerContent />
-      </VaultGate>
-    );
-  }
-  return <ActivityPlannerContent />;
 }
 
 function ActivityPlannerContent() {
@@ -38,29 +32,55 @@ function ActivityPlannerContent() {
   const [category, setCategory] = useState<Activity["category"]>("pleasure");
   const [moodBefore, setMoodBefore] = useState(4);
   const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const commit = (next: Activity[]) => {
+  /** Saves the new list, and shows it only once it is really stored. Returns false (and says so) otherwise. */
+  const commit = async (next: Activity[]): Promise<boolean> => {
+    setSaving(true);
+    const ok = await saveLocal(ACTIVITY_KEY, next);
+    setSaving(false);
+    if (!ok) {
+      setStatus("");
+      setError(t("cbt.activity.saveError"));
+      return false;
+    }
     setItems(next);
-    saveLocal(ACTIVITY_KEY, next);
+    setError("");
+    return true;
   };
 
-  const add = (e: React.FormEvent) => {
+  const add = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     if (!name.trim() || !when) {
       setError(t("cbt.activity.required"));
       return;
     }
     setError("");
-    commit([
+    setStatus("");
+    const ok = await commit([
       ...items,
       { id: crypto.randomUUID(), name: name.trim(), when, category, moodBefore, moodAfter: null, done: false },
     ]);
-    setName("");
-    setWhen("");
+    if (ok) {
+      setName("");
+      setWhen("");
+      setStatus(t("cbt.activity.saved"));
+    }
   };
 
-  const markDone = (id: string, moodAfter: number) =>
-    commit(items.map((a) => (a.id === id ? { ...a, done: true, moodAfter } : a)));
+  const markDone = async (id: string, moodAfter: number) => {
+    setStatus("");
+    const ok = await commit(items.map((a) => (a.id === id ? { ...a, done: true, moodAfter } : a)));
+    if (ok) setStatus(t("cbt.activity.saved"));
+  };
+
+  const remove = async (id: string) => {
+    setStatus("");
+    const ok = await commit(items.filter((x) => x.id !== id));
+    if (ok) setStatus(t("cbt.activity.removed"));
+  };
 
   return (
     <div className="journal-layout">
@@ -117,9 +137,12 @@ function ActivityPlannerContent() {
             {error}
           </p>
         )}
-        <button type="submit" className="primary-btn min-h-11">
+        <button type="submit" className="primary-btn min-h-11" disabled={saving}>
           <Icon name="plus" size={16} /> {t("cbt.activity.add")}
         </button>
+        <p role="status" aria-live="polite" className="text-[13px] text-[var(--primary)]">
+          {status}
+        </p>
       </form>
 
       <section className="journal-list" aria-labelledby="ap-list">
@@ -131,8 +154,9 @@ function ActivityPlannerContent() {
           <ActivityRow
             key={a.id}
             activity={a}
-            onDone={(m) => markDone(a.id, m)}
-            onDelete={() => commit(items.filter((x) => x.id !== a.id))}
+            busy={saving}
+            onDone={(m) => void markDone(a.id, m)}
+            onDelete={() => void remove(a.id)}
           />
         ))}
       </section>
@@ -142,10 +166,12 @@ function ActivityPlannerContent() {
 
 function ActivityRow({
   activity,
+  busy,
   onDone,
   onDelete,
 }: {
   activity: Activity;
+  busy: boolean;
   onDone: (moodAfter: number) => void;
   onDelete: () => void;
 }) {
@@ -161,6 +187,7 @@ function ActivityRow({
           className="icon-btn"
           style={{ width: 32, height: 32, border: "none" }}
           aria-label={t("cbt.activity.delete", { name: activity.name })}
+          disabled={busy}
           onClick={onDelete}
         >
           <Icon name="trash" size={14} />
@@ -179,7 +206,7 @@ function ActivityRow({
             {t("cbt.activity.moodAfter")}: {after}
           </label>
           <input id={id} type="range" min={0} max={10} value={after} onChange={(e) => setAfter(Number(e.target.value))} />
-          <button type="button" className="outline-btn min-h-6" onClick={() => onDone(after)}>
+          <button type="button" className="outline-btn min-h-6" disabled={busy} onClick={() => onDone(after)}>
             {t("cbt.activity.markDone")}
           </button>
         </div>
