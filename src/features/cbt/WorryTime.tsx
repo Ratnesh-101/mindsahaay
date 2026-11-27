@@ -5,11 +5,13 @@ import { CONTENT_NS } from "../journal/registerBundle";
 import { fieldClass, errorClass, hintClass, labelClass } from "../journal/ui";
 import Icon from "../../shared/ui/Icon";
 import VaultGate from "../journal/VaultGate";
+import SyncStatusLine from "./SyncStatusLine";
+import { useReloadOnRemoteChange } from "../../shared/lib/storage/useSyncStatus";
 import { DEFAULT_WORRY, WORRY_KEY, WorryStateSchema, loadLocal, nextOccurrence, saveLocal, type WorryState } from "./storage";
 
 /**
- * Worry time is stored encrypted on this device only, under the vault passphrase, so it is always
- * behind the vault gate. Without it a locked vault would silently drop what was typed.
+ * Worry time is encrypted under the vault passphrase, stored on this device and synced to the account as
+ * ciphertext, so it is always behind the vault gate. Without it a locked vault would silently drop what was typed.
  */
 export default function WorryTime() {
   return (
@@ -28,6 +30,14 @@ function WorryTimeContent() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // A newer copy from another device was pulled after unlock: show it.
+  useReloadOnRemoteChange("cbt_worry", () => {
+    const fresh = loadLocal(WORRY_KEY, WorryStateSchema, DEFAULT_WORRY);
+    setState(fresh);
+    setTime(fresh.time ?? "19:00");
+    setDuration(fresh.duration);
+  });
 
   /** Saves the new state, and shows it only once it is really stored. Returns false (and says so) otherwise. */
   const commit = async (next: WorryState): Promise<boolean> => {
@@ -99,6 +109,7 @@ function WorryTimeContent() {
           <p role="status" aria-live="polite" className="text-[13px] text-[var(--primary)]">
             {status}
           </p>
+          <SyncStatusLine slot="cbt_worry" />
           {error && (
             <p role="alert" className={errorClass}>
               {error}

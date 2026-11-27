@@ -5,6 +5,8 @@ import { CONTENT_NS } from "../journal/registerBundle";
 import { errorClass, fieldClass, hintClass, labelClass } from "../journal/ui";
 import Icon from "../../shared/ui/Icon";
 import { ACTIVITY_KEY, ActivitySchema, loadLocal, saveLocal, type Activity } from "./storage";
+import SyncStatusLine from "./SyncStatusLine";
+import { useReloadOnRemoteChange } from "../../shared/lib/storage/useSyncStatus";
 import { z } from "zod";
 
 import VaultGate from "../journal/VaultGate";
@@ -13,8 +15,9 @@ const ListSchema = z.array(ActivitySchema);
 const CATEGORIES = ["pleasure", "mastery", "social"] as const;
 
 /**
- * Activities are stored encrypted on this device only, under the vault passphrase. The planner is
- * therefore always behind the vault gate: without it a locked vault would silently drop what was typed.
+ * Activities are encrypted under the vault passphrase, stored on this device and synced to the account as
+ * ciphertext. The planner is therefore always behind the vault gate: without it a locked vault would
+ * silently drop what was typed.
  */
 export default function ActivityPlanner() {
   return (
@@ -34,6 +37,9 @@ function ActivityPlannerContent() {
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // A newer copy from another device was pulled after unlock: show it.
+  useReloadOnRemoteChange("cbt_activities", () => setItems(loadLocal(ACTIVITY_KEY, ListSchema, [])));
 
   /** Saves the new list, and shows it only once it is really stored. Returns false (and says so) otherwise. */
   const commit = async (next: Activity[]): Promise<boolean> => {
@@ -143,6 +149,7 @@ function ActivityPlannerContent() {
         <p role="status" aria-live="polite" className="text-[13px] text-[var(--primary)]">
           {status}
         </p>
+        <SyncStatusLine slot="cbt_activities" />
       </form>
 
       <section className="journal-list" aria-labelledby="ap-list">

@@ -47,6 +47,73 @@ export const OPAQUE_KEY_MAP = {
 export type KnownSecureKey = keyof typeof OPAQUE_KEY_MAP;
 
 /**
+ * Logical keys whose encrypted blobs also sync to the student's account (see remoteSync.ts).
+ * Their opaque ids are the slot ids allowed by the encrypted_blobs.slot CHECK constraint.
+ */
+export const SYNCED_KEYS = ["cbt_activities", "cbt_worry", "safety_card"] as const;
+export type SyncedKey = (typeof SYNCED_KEYS)[number];
+
+function asSyncedKey(key: string): SyncedKey | null {
+  const opaque = toOpaqueKey(key);
+  return SYNCED_KEYS.find((k) => OPAQUE_KEY_MAP[k] === opaque) ?? null;
+}
+
+/** Hands a freshly written synced slot to remoteSync. Loaded lazily to avoid a circular import. */
+function notifySyncedWrite(key: string): void {
+  const synced = asSyncedKey(key);
+  if (!synced) return;
+  void import("./remoteSync").then((m) => m.onLocalWrite(synced)).catch(() => undefined);
+}
+
+function notifyUnlocked(passphrase: string): void {
+  void import("./remoteSync").then((m) => m.syncOnUnlock(passphrase)).catch(() => undefined);
+}
+
+/** The encrypted payload exactly as stored on this device, or null. Used to push the SAME ciphertext. */
+export function getStoredPayload(key: string): { ciphertext: string; iv: string; salt: string } | null {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(toOpaqueKey(key));
+    if (!raw) return null;
+    const p = JSON.parse(raw) as Partial<EncryptedJournalPayload>;
+    if (typeof p.ciphertext !== "string" || typeof p.iv !== "string" || typeof p.salt !== "string") return null;
+    return { ciphertext: p.ciphertext, iv: p.iv, salt: p.salt };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Stores a ciphertext received from the server as this device's copy. If a passphrase is available it
+ * must decrypt it (otherwise nothing is changed and false is returned) and the memory cache is refreshed.
+ * Without a passphrase the raw ciphertext is stored and any stale cache entry is dropped.
+ */
+export async function applyRemotePayload(
+  key: string,
+  payload: { ciphertext: string; iv: string; salt: string },
+  passphrase: string | null
+): Promise<boolean> {
+  if (typeof localStorage === "undefined") return false;
+  const opaqueKey = toOpaqueKey(key);
+  let parsed: unknown;
+  if (passphrase) {
+    try {
+      parsed = JSON.parse(await decryptJournal(payload, passphrase));
+    } catch {
+      return false;
+    }
+  }
+  try {
+    localStorage.setItem(opaqueKey, JSON.stringify(payload));
+  } catch {
+    return false;
+  }
+  if (passphrase) memoryCache.set(opaqueKey, parsed);
+  else memoryCache.delete(opaqueKey);
+  return true;
+}
+
+/**
  * Converts any logical key name to an opaque prefixed key.
  */
 export function toOpaqueKey(key: string): string {
@@ -182,6 +249,7 @@ export async function setSecureItem<T = unknown>(
     if (typeof localStorage !== "undefined") {
       localStorage.setItem(opaqueKey, JSON.stringify(payload));
     }
+    notifySyncedWrite(key);
     return { status: "ok" };
   } catch {
     // Encryption failed or the browser refused the write (quota, private mode). Nothing was stored, so
@@ -216,6 +284,7 @@ export function setSecureItemSync<T = unknown>(
       if (typeof localStorage !== "undefined") {
         localStorage.setItem(opaqueKey, JSON.stringify(payload));
       }
+      notifySyncedWrite(key);
     } catch {
       // Storage failure handled silently
     }
@@ -354,6 +423,9 @@ export async function migrateSensitiveStorage(passphrase: string): Promise<void>
       }
     }
   }
+
+  // Pull newer copies of the synced slots from the account and push anything that was waiting.
+  notifyUnlocked(passphrase);
 }
 
 export interface ClearUserDataOptions {
@@ -384,6 +456,8 @@ export async function clearAllLocalUserData(
   clearSecureStoreMemory();
   lockVault();
   clearVaultState();
+  // Server copies stay on the account. Only this tab's sync bookkeeping is reset.
+  void import("./remoteSync").then((m) => m.resetRemoteSyncMemory()).catch(() => undefined);
 
   // 2. Clear application-owned keys from localStorage
   const preservedKeys: readonly string[] = [

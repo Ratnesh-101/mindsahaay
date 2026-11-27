@@ -6,6 +6,8 @@ import Icon from "../../shared/ui/Icon";
 import Modal from "../../shared/ui/Modal";
 import { useVaultPassphrase } from "../journal/vault";
 import VaultGate from "../journal/VaultGate";
+import SyncStatusLine from "../cbt/SyncStatusLine";
+import { useSyncStatus } from "../../shared/lib/storage/useSyncStatus";
 import {
   getSecureItemSync,
   setSecureItem,
@@ -32,6 +34,8 @@ export default function SafetyCardModal({ student, onClose }: SafetyCardModalPro
   const { t } = useTranslation(CONTENT_NS);
   const passphrase = useVaultPassphrase();
   const isUnlocked = Boolean(passphrase);
+  // Changes when a newer copy of the anchors from another device was pulled after unlock.
+  const { revision } = useSyncStatus("safety_card");
 
   const [showUnlockFlow, setShowUnlockFlow] = useState(false);
 
@@ -61,7 +65,7 @@ export default function SafetyCardModal({ student, onClose }: SafetyCardModalPro
       setAnchor3(GENERIC_ANCHOR_3);
       setTrustedFriend(GENERIC_FRIEND);
     }
-  }, [isUnlocked]);
+  }, [isUnlocked, revision]);
 
   const handleSave = async () => {
     if (!isUnlocked || saving) return;
@@ -230,6 +234,7 @@ export default function SafetyCardModal({ student, onClose }: SafetyCardModalPro
       <p role="status" aria-live="polite" className={saved ? "saved-label" : "sr-only"}>
         {saved ? `✓ ${t("safetyCard.saved")}` : ""}
       </p>
+      {isUnlocked && <SyncStatusLine slot="safety_card" />}
       {saveFailed && (
         <p role="alert" style={{ color: "var(--danger)", fontWeight: 600 }}>
           {t("safetyCard.saveError")}

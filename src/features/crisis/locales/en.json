@@ -20,6 +20,6 @@
   "safetyCard": {
     "saved": "Anchors encrypted and saved on this device.",
     "saveError": "We could not save your anchors on this device, so nothing was saved. Please try again.",
-    "deviceOnly": "Your anchors are stored encrypted on this device only. They are not sent to the server."
+    "deviceOnly": "Encrypted and synced to your account. Your anchors are encrypted with your vault passphrase, so MindSahaay cannot read them, and they appear on your other devices after you unlock."
   }
 }

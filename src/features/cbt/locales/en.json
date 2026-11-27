@@ -1,5 +1,11 @@
 {
   "cbt": {
+    "sync": {
+      "synced": "Synced",
+      "waiting": "Waiting to sync",
+      "conflict": "A newer copy from another device replaced the copy on this device.",
+      "dismiss": "Dismiss"
+    },
     "title": "CBT toolkit",
     "intro": "Simple, evidence-based exercises from cognitive behavioural therapy. These are self-help tools for learning, not treatment or a diagnosis.",
     "tabsLabel": "CBT tools",
@@ -52,7 +58,7 @@
     },
     "activity": {
       "title": "Behavioural activation planner",
-      "intro": "When mood is low, small planned activities can lift it. Plan something, do it, then rate your mood. Stored on this device only.",
+      "intro": "When mood is low, small planned activities can lift it. Plan something, do it, then rate your mood. Encrypted and synced to your account.",
       "name": "Activity",
       "namePlaceholder": "For example: 15-minute walk after dinner",
       "when": "Planned for",
@@ -78,7 +84,7 @@
     },
     "worry": {
       "title": "Worry-time scheduler",
-      "intro": "Pick a daily 15 to 20 minute slot for worrying. When a worry shows up at other times, park it here and come back to it later. Stored on this device only.",
+      "intro": "Pick a daily 15 to 20 minute slot for worrying. When a worry shows up at other times, park it here and come back to it later. Encrypted and synced to your account.",
       "time": "Daily worry time",
       "duration": "Length (minutes)",
       "saveSchedule": "Save schedule",
