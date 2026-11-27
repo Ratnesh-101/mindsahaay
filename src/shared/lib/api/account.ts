@@ -69,6 +69,15 @@ export async function exportStudentData(): Promise<DataPortabilityExport> {
       supabase.from("appointments").select("*").eq("student_id", user.id),
     ]);
 
+  // A failed read must never become an empty section in a "complete" export (the student would think
+  // that data does not exist), so any query error fails the whole export.
+  const failed = [profileRes, consentsRes, moodsRes, assessmentsRes, journalsRes, safetyPlanRes, appointmentsRes].find(
+    (res) => res.error,
+  );
+  if (failed?.error) {
+    throw new ApiError(`Data export failed: ${failed.error.message}`, 500, failed.error.code, { original: failed.error });
+  }
+
   const exportPayload: DataPortabilityExport = {
     metadata: {
       platform: "MindSahaay Student Wellbeing",
@@ -132,6 +141,26 @@ export async function deleteStudentAccount(): Promise<DeleteAccountResult> {
     success: true,
     erasedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Saves the display name / alias on the student's own profile row. Resolves only after the backend
+ * confirmed that exactly the signed-in student's row was updated.
+ */
+export async function updateStudentAlias(alias: string): Promise<string> {
+  const clean = alias.trim().slice(0, 40);
+  if (!clean) {
+    throw new ValidationError("Alias cannot be empty");
+  }
+  const { user } = await getAuthenticatedSession();
+  const { data, error } = await supabase.from("profiles").update({ alias: clean }).eq("id", user.id).select("id");
+  if (error) {
+    throw new ApiError(error.message, 500, error.code, { original: error });
+  }
+  if (!data || data.length === 0) {
+    throw new ApiError("Profile not found, so the display name was not saved.", 404, "PROFILE_NOT_FOUND");
+  }
+  return clean;
 }
 
 export function useExportData() {

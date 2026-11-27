@@ -10,6 +10,8 @@ import {
   DEFAULT_POLICY_VERSION,
 } from "../../shared/lib/api/consents";
 import { isDemoModeActive } from "../auth/demoMode";
+import "./i18n";
+import { CONTENT_NS } from "../journal/registerBundle";
 
 const PURPOSE_LABELS: Record<ConsentPurpose, { title: string; desc: string }> = {
   data_processing: {
@@ -40,10 +42,16 @@ const PURPOSE_LABELS: Record<ConsentPurpose, { title: string; desc: string }> = 
 
 export default function ConsentLedger() {
   const { t } = useTranslation();
-  const { data: activeConsents, isLoading: loadingActive } = useActiveConsents();
-  const { data: ledger, isLoading: loadingLedger } = useConsents();
+  const {
+    data: activeConsents,
+    isLoading: loadingActive,
+    refetch: refetchActive,
+  } = useActiveConsents();
+  const { data: ledger, isLoading: loadingLedger, isError: ledgerFailed } = useConsents();
   const grantMutation = useGrantConsent();
   const revokeMutation = useRevokeConsent();
+  const { t: tc } = useTranslation(CONTENT_NS);
+  const [toggleNotice, setToggleNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
   // Local fallback state for demo mode
   const [demoActiveConsents, setDemoActiveConsents] = useState<Record<ConsentPurpose, boolean>>(() => {
@@ -75,26 +83,12 @@ export default function ConsentLedger() {
 
   const [demoAuditEvents, setDemoAuditEvents] = useState<
     Array<{ id: string; purpose: ConsentPurpose; consented: boolean; policy_version: string; granted_at: string }>
-  >([
-    {
-      id: "demo-event-1",
-      purpose: "data_processing",
-      consented: true,
-      policy_version: DEFAULT_POLICY_VERSION,
-      granted_at: new Date(Date.now() - 3600000 * 24).toISOString(),
-    },
-    {
-      id: "demo-event-2",
-      purpose: "crisis_intervention",
-      consented: true,
-      policy_version: DEFAULT_POLICY_VERSION,
-      granted_at: new Date(Date.now() - 3600000 * 24).toISOString(),
-    },
-  ]);
+  >([]);
 
   const isDemo = isDemoModeActive();
 
   const handleToggle = async (purpose: ConsentPurpose, isCurrentlyActive: boolean) => {
+    setToggleNotice(null);
     if (isDemo) {
       const nextConsented = !isCurrentlyActive;
       const updated = { ...demoActiveConsents, [purpose]: nextConsented };
@@ -114,15 +108,26 @@ export default function ConsentLedger() {
       return;
     }
 
-    if (isCurrentlyActive) {
-      await revokeMutation.mutateAsync({ purpose, policyVersion: DEFAULT_POLICY_VERSION });
-    } else {
-      await grantMutation.mutateAsync({ purpose, policyVersion: DEFAULT_POLICY_VERSION });
+    // The change is real only once the ledger row was written: mutateAsync throws otherwise, and the
+    // toggle then stays as it was while the student is told so.
+    const title = PURPOSE_LABELS[purpose].title;
+    try {
+      if (isCurrentlyActive) {
+        await revokeMutation.mutateAsync({ purpose, policyVersion: DEFAULT_POLICY_VERSION });
+        setToggleNotice({ kind: "ok", text: tc("consentPage.revoked", { title }) });
+      } else {
+        await grantMutation.mutateAsync({ purpose, policyVersion: DEFAULT_POLICY_VERSION });
+        setToggleNotice({ kind: "ok", text: tc("consentPage.granted", { title }) });
+      }
+    } catch {
+      setToggleNotice({ kind: "error", text: tc("consentPage.toggleError", { title }) });
     }
   };
 
-  const effectiveConsents = isDemo ? demoActiveConsents : (activeConsents ?? demoActiveConsents);
-  const effectiveLedger = isDemo ? demoAuditEvents : (ledger ?? demoAuditEvents);
+  // Real accounts only ever show what the ledger says. Until it has loaded, or if it cannot be read,
+  // no toggle is shown at all, so default values can never pass for the student's real choices.
+  const effectiveConsents: Record<ConsentPurpose, boolean> | undefined = isDemo ? demoActiveConsents : activeConsents;
+  const effectiveLedger = isDemo ? demoAuditEvents : (ledger ?? []);
   const isUpdating = grantMutation.isPending || revokeMutation.isPending;
 
   return (
@@ -175,8 +180,15 @@ export default function ConsentLedger() {
           {isUpdating && <span className="saved-label">Updating ledger…</span>}
         </div>
 
-        {loadingActive && !isDemo ? (
-          <p className="muted">Loading consent ledger status…</p>
+        {!isDemo && loadingActive ? (
+          <p className="muted" role="status">Loading consent ledger status…</p>
+        ) : !effectiveConsents ? (
+          <div role="alert" data-testid="consent-load-error">
+            <p style={{ color: "var(--danger)", fontWeight: 600 }}>{tc("consentPage.loadError")}</p>
+            <button type="button" className="primary-btn" style={{ marginTop: 8 }} onClick={() => void refetchActive()}>
+              {tc("common.retry")}
+            </button>
+          </div>
         ) : (
           <div className="care-plan-list">
             {(Object.keys(PURPOSE_LABELS) as ConsentPurpose[]).map((purpose) => {
@@ -224,6 +236,14 @@ export default function ConsentLedger() {
             })}
           </div>
         )}
+        <p role="status" aria-live="polite" className={toggleNotice?.kind === "ok" ? "saved-label" : "sr-only"} style={{ marginTop: 10 }}>
+          {toggleNotice?.kind === "ok" ? toggleNotice.text : ""}
+        </p>
+        {toggleNotice?.kind === "error" && (
+          <p role="alert" style={{ color: "var(--danger)", fontWeight: 600, marginTop: 10 }}>
+            {toggleNotice.text}
+          </p>
+        )}
       </section>
 
       {/* Immutable Append-Only Ledger History */}
@@ -238,7 +258,9 @@ export default function ConsentLedger() {
         </div>
 
         {loadingLedger && !isDemo ? (
-          <p className="muted">Loading audit entries…</p>
+          <p className="muted" role="status">Loading audit entries…</p>
+        ) : !isDemo && ledgerFailed ? (
+          <p role="alert" style={{ color: "var(--danger)", fontWeight: 600 }}>{tc("consentPage.ledgerError")}</p>
         ) : (
           <div
             style={{ overflowX: "auto" }}

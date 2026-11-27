@@ -1,0 +1,15 @@
+{
+  "consentPage": {
+    "granted": "Consent recorded in your ledger: granted for {{title}}.",
+    "revoked": "Consent recorded in your ledger: revoked for {{title}}.",
+    "toggleError": "We could not record this change, so your consent for {{title}} is unchanged. Please try again.",
+    "loadError": "We could not load your consent choices, so none are shown. Nothing has been changed. Please try again.",
+    "ledgerError": "We could not load your audit ledger. Please try again later."
+  },
+  "onboardingSave": {
+    "saveError": "We could not record your choices, so nothing was saved yet. Please check your connection and try again.",
+    "aliasError": "Your consent was recorded, but we could not save your display name. Please try again.",
+    "aliasLabel": "Display name or alias",
+    "aliasRequired": "Please enter a name or alias, or generate an anonymous one."
+  }
+}

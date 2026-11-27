@@ -1,17 +1,24 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import Icon from "../../shared/ui/Icon";
 import { grantConsent, DEFAULT_POLICY_VERSION, type ConsentPurpose } from "../../shared/lib/api/consents";
+import { updateStudentAlias } from "../../shared/lib/api/account";
 import { isDemoModeActive } from "../auth/demoMode";
+import "../consent/i18n";
+import { CONTENT_NS } from "../journal/registerBundle";
 
 export default function Onboarding() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
-  const [alias, setAlias] = useState("Aarav");
+  const [alias, setAlias] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const { t: tc } = useTranslation(CONTENT_NS);
+  // What the backend has already confirmed, so a retry after a partial failure never repeats it.
+  const grantedRef = useRef<Set<ConsentPurpose>>(new Set());
+  const aliasSavedRef = useRef<string | null>(null);
 
   // Granular consent states
   const [consents, setConsents] = useState<{
@@ -50,21 +57,41 @@ export default function Onboarding() {
       return;
     }
 
+    if (!alias.trim()) {
+      setErrorMessage(tc("onboardingSave.aliasRequired"));
+      return;
+    }
+
     setSubmitting(true);
     setErrorMessage(null);
 
     try {
       if (!isDemoModeActive()) {
-        // Record each granular consent in the append-only ledger
+        // Record each granular consent in the append-only ledger. Each write must be confirmed: if one
+        // fails, stop, say so, and keep the student here so they can retry. Nothing is claimed as saved.
         const activePurposes: ConsentPurpose[] = (
           Object.keys(consents) as (keyof typeof consents)[]
         ).filter((k) => consents[k]) as ConsentPurpose[];
 
         for (const purpose of activePurposes) {
+          if (grantedRef.current.has(purpose)) continue;
           try {
             await grantConsent(purpose, DEFAULT_POLICY_VERSION);
+            grantedRef.current.add(purpose);
           } catch {
-            // Non-blocking in case of offline or local testing
+            setErrorMessage(tc("onboardingSave.saveError"));
+            return;
+          }
+        }
+
+        const wantedAlias = alias.trim();
+        if (aliasSavedRef.current !== wantedAlias) {
+          try {
+            await updateStudentAlias(wantedAlias);
+            aliasSavedRef.current = wantedAlias;
+          } catch {
+            setErrorMessage(tc("onboardingSave.aliasError"));
+            return;
           }
         }
       } else {
@@ -75,7 +102,7 @@ export default function Onboarding() {
       localStorage.setItem("mindsahaay_onboarding_completed", "true");
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Failed to record consent. Please try again.");
+      setErrorMessage(err instanceof Error ? err.message : tc("onboardingSave.saveError"));
     } finally {
       setSubmitting(false);
     }
@@ -163,7 +190,7 @@ export default function Onboarding() {
                 value={alias}
                 onChange={(e) => setAlias(e.target.value)}
                 placeholder="Enter a preferred name or alias"
-                required
+                aria-required="true"
               />
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                 <button
