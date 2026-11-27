@@ -16,7 +16,7 @@ See `docs/31-demo-data.md` (migration 0009: `is_demo`, `load_demo_data()`, `clea
 Decisions the owner still owes (do not decide for them): (a) should chat conversations be saved (retention, client-side encryption)? (b) do stories need a per-user likes table? (c) should CBT, worry-time and safety-card anchor data sync across devices (today device-only)?
 
 ## 4. Possible next steps
-1. Owner decisions above. 2. Native Hindi review of the new keys listed in `docs/27-hindi-review.md`. 3. Anything in section 7 (keys, ethics, hosted Supabase). 4. Push is done only after the owner's go-ahead is recorded in git history; check `git status -sb` for ahead/behind.
+1. Owner decisions above. 2. Native Hindi review of the new keys listed in `docs/27-hindi-review.md`. 3. Anything in section 7 (keys, ethics, hosted Supabase). All work above is pushed (`main` level with origin at the time of writing).
 
 ## 5. Environment (how to bring everything up; nothing survives a reboot)
 - Scratchpad: `C:\Users\Admin\AppData\Local\Temp\claude\565ec6077978de86\6d983fb0-6a84-4da1-a951-045cb7327bc5\scratchpad` (prompts in `prompts/`, logs and worker reports in `logs/`, real-browser scripts in `real/`, backup bundle `mindsahaay-309-commits.bundle`). A reboot or cleanup can clear it: worker reports there are NOT durable.
