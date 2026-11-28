@@ -10,7 +10,8 @@ This is a student capstone analysis, not legal advice. TODO: review by a qualifi
 | Mood entries | Health-related | Postgres (RLS) | Self-tracking | Until deleted by student |
 | PHQ results | Health-related | Postgres (RLS) | Self-awareness | Until deleted |
 | Journal | Highly sensitive | Client-encrypted ciphertext | Reflection | Until deleted |
-| Chat text | Highly sensitive | Postgres; sent to Claude API for non-crisis turns | Companion | 30 days default (TODO decide) |
+| Chat text (saved) | Highly sensitive | Postgres (`chat_sessions`, `chat_messages`): client-side AES-GCM ciphertext only; sent to Claude API over TLS during active turn | Companion | 30 days enforced by DB trigger and `purge_expired_chat_messages()` |
+| Synced therapeutic blobs (`encrypted_blobs`) | Highly sensitive | Postgres (`encrypted_blobs`): AES-GCM ciphertext only under opaque slot IDs (`cbt_activities`, `cbt_worry`, `safety_card`); client `secureStore` | Multi-device sync for CBT exercises and safety card | Until deleted by student or account erasure (cascade delete) |
 | Crisis events | Safety metadata | Postgres, no text | Safety audit (consent) | 12 months (TODO decide) |
 | Appointments | Personal | Postgres | Booking | Until deleted |
 | Consent records | Compliance | Postgres | Evidence of consent | Kept as legal record; TODO reconcile with erasure |
@@ -29,12 +30,12 @@ This is a student capstone analysis, not legal advice. TODO: review by a qualifi
 | PR-02 | Consent | Free, specific, informed, unambiguous, withdrawable | Per-purpose toggles, no pre-ticked boxes, withdraw as easy as grant | FR-AUTH-04 | Planned |
 | PR-03 | Purpose limitation | Use only for stated purpose | No analytics SDKs, no sharing with university or advertisers. Follow-up notes and queue data stay inside the platform | FR-CRISIS-08, FR-CRISIS-09 | Planned |
 | PR-04 | Data minimisation | Collect only what is necessary | Alias mode; no phone, no ID number, no location | FR-AUTH-07 | Planned |
-| PR-05 | Accuracy and storage limitation | Erase when purpose ends | Chat retention job, erase on request | FR-AI-07 | Planned |
-| PR-06 | Security safeguards | Reasonable safeguards | RLS, TLS, client-side journal encryption, threat model | NFR-SEC-01 | Planned |
+| PR-05 | Accuracy and storage limitation | Erase when purpose ends | Chat 30-day retention trigger and purge job (`purge_expired_chat_messages`), erase on request | FR-AI-07, FR-CHATSAVE-01 | Planned |
+| PR-06 | Security safeguards | Reasonable safeguards | RLS, TLS, client-side journal and chat encryption (AES-GCM, AAD), encrypted blob sync, threat model | NFR-SEC-01, FR-SYNC-01 | Planned |
 | PR-07 | Breach notification | Notify Board and affected users on breach | Incident runbook (TODO write, verify timelines in the Rules) | n/a | TODO |
 | PR-08 | Children's data | Verifiable parental consent for under 18 | 18+ only with age confirmation; TODO assess whether a self-declaration is sufficient | FR-AUTH-01 | TODO |
-| PR-09 | Right to access / information | Summary of data processed | One-click JSON export | FR-AUTH-05 | Planned |
-| PR-10 | Right to correction and erasure | Correct and erase | Edit and delete screens; full erase. The server account is deleted first, then local data is wiped and the offline outbox is discarded (L49 closed; see 6 TH-35). Consent records kept as legal evidence remain a TODO | FR-AUTH-06, NFR-PRIV-03 | Planned |
+| PR-09 | Right to access / information | Summary of data processed | One-click JSON export (includes encrypted chat and blob ciphertexts) | FR-AUTH-05 | Planned |
+| PR-10 | Right to correction and erasure | Correct and erase | Edit and delete screens; full erase (cascades to chat sessions, messages, and encrypted blobs). The server account is deleted first, then local data is wiped and the offline outbox is discarded (L49 closed; see 6 TH-35). Consent records kept as legal evidence remain a TODO | FR-AUTH-06, NFR-PRIV-03 | Planned |
 | PR-11 | Right to grievance redressal | Contact point, response timeline | Grievance contact page. TODO name a contact and confirm timeline | n/a | TODO |
 | PR-12 | Right to nominate | Nominee in event of death or incapacity | Not in v1. TODO assess | n/a | Gap |
 | PR-13 | Data fiduciary obligations | Significant data fiduciary duties, DPO, audit, DPIA | Likely not "significant" at capstone scale; TODO assess if deployed | n/a | TODO |
@@ -44,16 +45,16 @@ This is a student capstone analysis, not legal advice. TODO: review by a qualifi
 ## 3. Data Protection Impact Assessment
 
 ### 3.1 Description of processing
-Students enter mood, screening answers, journals and chat messages. Non-crisis chat messages are sent to a third-party LLM through our server. Counsellors receive booking alias and note. Since 2026-11-20, a high or crisis risk event (no message text) starts a recorded follow-up that counsellors with a `risk_events` care share can see and advance, and the student receives two check-back questions. While the device is offline, such an event, and mood entries, can wait in an encrypted on-device queue (3.5).
+Students enter mood, screening answers, journals and chat messages. Non-crisis chat messages are sent to a third-party LLM through our server. Saved chat conversations are encrypted client-side with keys derived from the vault passphrase and session salt (AES-GCM, AAD bound), stored as ciphertext with a 30-day retention trigger and purge RPC, and offer a per-conversation toggle not to save. Therapeutic anchors (CBT activities, worry time, safety card) synchronize across devices as encrypted blobs (`encrypted_blobs`, `put_blob` RPC) under opaque slot IDs. Counsellors receive booking alias and note. Since 2026-11-20, a high or crisis risk event (no message text) starts a recorded follow-up that counsellors with a `risk_events` care share can see and advance, and the student receives two check-back questions. While the device is offline, such an event, and mood entries, can wait in an encrypted on-device queue (3.5).
 
 ### 3.2 Necessity and proportionality
-Each data type maps to a feature. Journals are encrypted so that the service does not need to read them. Chat has to be readable by the server to reach the LLM, so a retention limit and a clear notice are required.
+Each data type maps to a feature. Journals and saved chats are encrypted client-side so that the platform cannot read them. Chat has to be readable by the server in transit to reach the LLM, so a 30-day retention limit, per-conversation opt-out toggle, and clear notice are enforced. Synced blobs contain only ciphertext, protecting third-party contact details and sensitive therapeutic exercises.
 
 ### 3.3 Risk assessment
 
 | ID | Risk to students | Likelihood | Impact | Mitigation | Residual |
 |---|---|---|---|---|---|
-| DR-01 | Disclosure of chat or screening data (breach, IDOR) | Medium | Very high (stigma, harm) | RLS, JWT, ID from token, retention, no logs of content | Medium |
+| DR-01 | Disclosure of chat or screening data (breach, IDOR) | Medium | Very high (stigma, harm) | RLS, JWT, ID from token, client-side AES-GCM encryption for chat at rest (server holds ciphertext only), 30-day retention trigger and purge, no logs of content | Low |
 | DR-02 | LLM provider processing and retention of chat text | Medium | High | Server proxy strips identity; provider zero-retention option if available (TODO verify); notice and consent | Medium |
 | DR-03 | Journal loss through forgotten passphrase | Medium | Medium | Clear warning, optional recovery export | Low |
 | DR-04 | Pressure from institution to access data | Low | Very high | Architecture prevents it: no admin role can read individual rows | Low |
@@ -66,6 +67,8 @@ Each data type maps to a feature. Journals are encrypted so that the service doe
 | DR-11 | A student is contacted or monitored against their wishes | Low | Medium | Care share scope `risk_events` is needed and revocable; the check-back opt-out hides future check-backs (now stored on the server in `profiles.checkback_opt_out`, migration 0006, L43); no SMS, email or push exists | Low |
 | DR-12 | An alert is not queued or sent because of a missing consent cache, a locked vault or a withdrawn consent, and the student believes help was told | Medium | High | The offline banner says nobody is alerted until the device reconnects; the crisis page always shows the helplines; the student card says when no counsellor can see the alert | Medium (L38, L39, L42) |
 | DR-13 | A signed-in student reads another student's pseudonymous alias through the helper get_student_alias_for_care (independent review, 28-new-features-security-review.md, G6-SEC-02) | Low | Medium | Fixed in migration 0007 (refuses unless the caller is a super admin or holds a care share for that student); regression in pgTAP 12 and 13. The alias is a pseudonym, not a name | Low |
+| DR-14 | Encrypted blob sync exposes therapeutic data or third-party contact | Low | High | AES-GCM client encryption under vault passphrase; server stores only ciphertext under opaque slot IDs (`mindsahaay_sec_*`); `put_blob` RPC enforces atomic version check; owner-only RLS | Low. Third-party trusted contact data protected by passphrase strength |
+| DR-15 | Chat data lost permanently due to forgotten passphrase | Medium | Medium | User warning; zero server-side decryption key recovery by design; per-conversation ephemeral toggle available | Low |
 
 ### 3.4 Conclusion
 Processing may proceed for a supervised pilot only if DR-01 and DR-02 mitigations are implemented, DR-09 (outbox left after erasure, now fixed) stays fixed, and TODO items PR-07, PR-08, PR-11, PR-14 are closed. The follow-up loop and the offline queue add DR-08 to DR-12; none of them has been assessed by a lawyer or an ethics committee. Sign-off: TODO (supervisor, ethics committee).

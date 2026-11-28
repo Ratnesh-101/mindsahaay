@@ -6,17 +6,33 @@ Written 2026-11-27, ~10:40 IST, at ~85% of the context window. This file lets a 
 MindSahaay: a privacy-first digital mental health platform for Indian university students (capstone project, owner GitHub `Ratnesh-101`, repo https://github.com/Ratnesh-101/mindsahaay, **public**).
 Stack: React 19 + Vite 8 + TypeScript + Tailwind v4 frontend (state-based shell with React Router), Supabase (Postgres + Auth + RLS + Realtime + Deno edge function `server`), Claude API companion (needs `ANTHROPIC_API_KEY`, not available locally), client-side encrypted journal, offline PWA outbox. Read `README.md`, `AGENTS.md`, `docs/00-README.md`, `docs/19-known-limitations.md` for detail.
 
-## 2. State at hand-off (2026-11-27, end of the demo-data task)
-The "demo data button, no fabricated data, real data is saved" task is DONE, verified as a whole and committed (15 code commits plus docs on top of `e84e4b2`).
-Measured: typecheck 0 errors; eslint clean (src and e2e); Vitest 910 passed, 1 skipped (80 files + 1 skipped); coverage 91.99% lines, 90.02% statements, 87.34% functions, 82.22% branches; production build green; `supabase db reset` + `supabase test db`: 15 files, 184 tests pass; Playwright demo+PWA 102/102; Playwright real-backend 24/24 (10 older + `fresh-account`, `demo-data`, `persistence`, `preview-flag`).
-Not run: Lighthouse, ZAP, hosted Supabase, real-device PWA, LLM evaluation, CI on a real runner.
+## 2. State at hand-off (2026-11-27, end of Wave 3: chat persistence & synced blobs)
+The Wave 3 architecture (chat persistence, encrypted blob sync, stories likes decision) is DONE, verified, and committed locally (see git log: commits `d1d4050` through `17fe7c9`). Note: do NOT claim a push happened; changes are committed locally on `main`.
+Measured facts:
+- TypeScript (`pnpm typecheck`): 0 errors.
+- ESLint (`npx eslint src`): clean (0 errors, 0 warnings across src and e2e).
+- Vitest: **950 passed, 1 skipped** in 86 files (85 files passed + 1 skipped; skipped is live smoke test needing tokens). One transient flake (7 timeouts under load) occurred once and did not reproduce in 2 reruns.
+- Coverage: lines 91.83%, statements 89.79%, functions 87.17%, branches 81.86% (thresholds in `vitest.config.ts` enforced and passing).
+- Production build: green; first route ~190.9 KB gzipped.
+- Database & pgTAP (`supabase test db`): **17 files, 231 tests, all passing** on local Supabase (migrations 0001 to 0010; files 16 and 17 cover chat persistence and encrypted blobs).
+- Playwright demo + PWA: **102 passed** (102/102; 93 chromium with 57 axe combinations at 0 serious/critical violations, 9 pwa).
+- Playwright real-backend (`pnpm test:e2e:real`): **36 passed (36/36)** against the local Supabase stack (including 9 chat-persistence specs and 3 blob-sync specs, alongside fresh-account, demo-data, persistence, preview-flag, sign-in, follow-up loop, offline outbox, shared-device).
+- Requirements matrix (`node scripts/req-status.mjs`): Implemented 3, Partial 67, Not started 9, total 79 (0 errors, 29 warnings).
+Not run: Lighthouse, ZAP, hosted Supabase, real-device PWA, LLM evaluation with live key, CI on a real runner.
 
 ## 3. What the task changed
-See `docs/31-demo-data.md` (migration 0009: `is_demo`, `load_demo_data()`, `clear_demo_data()`, counsellor and analytics exclusion) and `docs/32-persistence-audit.md` (about 15 flows made honest). Settings data export now uses real consent records and fails loudly.
-Decisions the owner still owes (do not decide for them): (a) should chat conversations be saved (retention, client-side encryption)? (b) do stories need a per-user likes table? (c) should CBT, worry-time and safety-card anchor data sync across devices (today device-only)?
+All three owner decisions were made and implemented (documented in `docs/33-chat-persistence-and-sync.md` and migration 0010):
+1. **Chat persistence:** Conversations saved client-side encrypted with AES-GCM (key derived from vault passphrase + per-session salt; AAD binds `${sessionId}|${role}|${seq}`). 30-day retention enforced by DB trigger `trg_chat_messages_force_dates` and `purge_expired_chat_messages()`. Client API (`src/features/chat/history.ts`) provides past chat list/load, delete conversation/all, and a per-conversation "Don't save this conversation" toggle. Decrypted transcripts and key caches are cleared immediately on vault lock. Zero access for staff/counsellors.
+2. **NO per-user likes table:** By design decision to protect student mental health privacy (preventing server logs of sensitive posts engaged with) and remove social popularity pressure, stories intentionally omit a likes table. Read-only like counters are hidden in "Voices of Courage" and modal views.
+3. **Encrypted blob sync:** CBT activities, worry time, and safety-card anchors now sync across devices as encrypted blobs (`encrypted_blobs` table, `put_blob` RPC with atomic version conflict checking; server copy wins on conflict). Local-first write with offline dirty queue retry. DPDP export (`/me/export`) includes encrypted chat sessions, messages, and encrypted blobs.
 
 ## 4. Possible next steps
-1. Owner decisions above. 2. Native Hindi review of the new keys listed in `docs/27-hindi-review.md`. 3. Anything in section 7 (keys, ethics, hosted Supabase). All work above is pushed (`main` level with origin at the time of writing).
+What is still open (needs the owner / external resources):
+1. **Native Hindi review:** New strings in `docs/27-hindi-review.md` (chat persistence, blob sync, and demo data locales).
+2. **Anthropic & Daily.co API keys:** Live AI chat streaming verification, LLM/hybrid crisis evaluation (`eval/`), and live Daily.co video consultation tokens.
+3. **Hosted Supabase:** Deploying migrations 0001 to 0010 to a hosted Supabase project (verifying permissions on `auth.users`, extensions, `pg_cron`, and realtime publication).
+4. **Clinical, ethics & user studies:** Ethics committee approval, survey, student interviews, usability study (SUS), and clinical safety officer sign-off.
+5. **Audits & Performance:** Lighthouse mobile audits, OWASP ZAP security scan, and npm dependency audit.
 
 ## 5. Environment (how to bring everything up; nothing survives a reboot)
 - Scratchpad: `C:\Users\Admin\AppData\Local\Temp\claude\565ec6077978de86\6d983fb0-6a84-4da1-a951-045cb7327bc5\scratchpad` (prompts in `prompts/`, logs and worker reports in `logs/`, real-browser scripts in `real/`, backup bundle `mindsahaay-309-commits.bundle`). A reboot or cleanup can clear it: worker reports there are NOT durable.

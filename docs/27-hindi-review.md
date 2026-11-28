@@ -220,3 +220,40 @@ Existing keys whose wording changed in the same diffs (also needs native review)
 | `src/features/community/locales/hi.json` | `stories.voicesSubtitle` | Recent posts shared by students in Campus Peer Circles. They are anonymous and were approved by moderation. | कैंपस पीयर सर्कल में छात्रों द्वारा साझा की गई हाल की पोस्ट। ये गुमनाम हैं और मॉडरेशन द्वारा स्वीकृत की गई हैं। |
 | `src/features/community/locales/hi.json` | `stories.filtersLabel` | Circle categories | सर्कल की श्रेणियाँ |
 | `src/features/community/locales/hi.json` | `stories.empty` | No stories here yet. Posts that are approved in Campus Peer Circles will appear here. | यहाँ अभी कोई कहानी नहीं है। कैंपस पीयर सर्कल में स्वीकृत पोस्ट यहाँ दिखेंगी। |
+
+## Added 2026-11-27: strings from the chat-persistence and encrypted-blobs sync change set (Wave 3)
+
+Status: **needs native review**. These keys were added or modified in the Wave 3 change set across `src/features/chat/locales/hi.json`, `src/features/cbt/locales/hi.json`, and `src/features/crisis/locales/hi.json`. Written by AI workers; none has been reviewed by a native Hindi speaker. Ordering: safety and persistence notices first, then sync and UI workflow actions. Keep `{{count}}` placeholders.
+
+| File | i18n key | English | Current Hindi | Concern | Reviewer correction |
+| --- | --- | --- | --- | --- | --- |
+| `src/features/chat/locales/hi.json` | `chat.notSaved` | Saved for 30 days, encrypted with your vault passphrase. MindSahaay staff and counsellors cannot read it. Each message is still sent to our AI provider to write a reply. | 30 दिनों के लिए सुरक्षित, आपके वॉल्ट पासफ़्रेज़ से एन्क्रिप्टेड। MindSahaay का स्टाफ़ और काउंसलर्स इसे नहीं पढ़ सकते। जवाब तैयार करने के लिए प्रत्येक संदेश हमारे AI प्रदाता को भेजा जाता है। | Safety and privacy notice. Replaces the former "MindSahaay does not save" text. Verify accuracy of AI provider disclosure and 30-day retention phrasing. | |
+| `src/features/chat/locales/hi.json` | `chat.lockedBanner` | Unlock your vault to save and see past conversations. This conversation is not being saved. | पिछली बातचीत देखने और सहेजने के लिए अपना वॉल्ट अनलॉक करें। यह बातचीत सहेजी नहीं जा रही है। | Banner shown when vault is locked. | |
+| `src/features/chat/locales/hi.json` | `chat.dontSaveToggle` | Don't save this conversation | इस बातचीत को सहेजें नहीं | Toggle label for per-conversation ephemerality. | |
+| `src/features/chat/locales/hi.json` | `chat.notSavedThisConvo` | This conversation is not being saved. | यह बातचीत सहेजी नहीं जा रही है। | Inline notice when toggle is active. | |
+| `src/features/chat/locales/hi.json` | `chat.demoNotice` | Preview mode: conversations are not saved. | प्रीव्यू मोड: बातचीत सहेजी नहीं जाती है। | Preview mode status text. | |
+| `src/features/chat/locales/hi.json` | `chat.notSavedYet` | Not saved yet | अभी सहेजा नहीं गया | Status indicator when background save is retrying. | |
+| `src/features/chat/locales/hi.json` | `chat.pastConversations` | Past conversations | पिछली बातचीत | Button and header label. | |
+| `src/features/chat/locales/hi.json` | `chat.noPastConversations` | No past conversations yet. | अभी तक कोई पिछली बातचीत नहीं है। | Empty state in past chats modal. | |
+| `src/features/chat/locales/hi.json` | `chat.pastChatsTitle` | Saved Conversations | सहेजी गई बातचीत | Modal title for past conversation drawer/dialog. | |
+| `src/features/chat/locales/hi.json` | `chat.closeHistory` | Close | बंद करें | Modal close button. | |
+| `src/features/chat/locales/hi.json` | `chat.openPastChat` | Open | खोलें | Open button for past session. | |
+| `src/features/chat/locales/hi.json` | `chat.newChat` | New chat | नई बातचीत | Action button. | |
+| `src/features/chat/locales/hi.json` | `chat.deleteConvo` | Delete conversation | बातचीत हटाएं | Deletion action. | |
+| `src/features/chat/locales/hi.json` | `chat.deleteConvoConfirm` | Are you sure you want to delete this conversation? This cannot be undone. | क्या आप वाकई इस बातचीत को हटाना चाहते हैं? इसे वापस नहीं लाया जा सकता। | Destructive action confirmation dialog. | |
+| `src/features/chat/locales/hi.json` | `chat.deleteAllChats` | Delete all chats | सभी चैट हटाएं | Destructive bulk action button. | |
+| `src/features/chat/locales/hi.json` | `chat.deleteAllChatsConfirm` | Are you sure you want to delete all saved conversations? This cannot be undone. | क्या आप वाकई सभी सहेजी गई बातचीत हटाना चाहते हैं? इसे वापस नहीं लाया जा सकता। | Destructive action confirmation dialog. | |
+| `src/features/chat/locales/hi.json` | `chat.deleteConfirm` | Yes, delete | हाँ, हटाएं | Modal confirmation CTA. | |
+| `src/features/chat/locales/hi.json` | `chat.deleteCancel` | Cancel | रहने दें | Modal cancel button. | |
+| `src/features/chat/locales/hi.json` | `chat.deletedNotice` | Conversation deleted. | बातचीत हटा दी गई। | Toast notification. | |
+| `src/features/chat/locales/hi.json` | `chat.allDeletedNotice` | All conversations deleted. | सभी बातचीत हटा दी गई। | Toast notification. | |
+| `src/features/chat/locales/hi.json` | `chat.messagesCount` | {{count}} messages | {{count}} संदेश | Session list count format. | |
+| `src/features/chat/locales/hi.json` | `chat.messagesCount_one` | 1 message | 1 संदेश | Singular form. | |
+| `src/features/chat/locales/hi.json` | `chat.messagesCount_other` | {{count}} messages | {{count}} संदेश | Plural form. | |
+| `src/features/cbt/locales/hi.json` | `cbt.sync.synced` | Synced | सिंक हो गया | Sync status badge. | |
+| `src/features/cbt/locales/hi.json` | `cbt.sync.waiting` | Waiting to sync | सिंक होने की प्रतीक्षा में | Sync dirty/retry status. | |
+| `src/features/cbt/locales/hi.json` | `cbt.sync.conflict` | A newer copy from another device replaced the copy on this device. | दूसरे डिवाइस की नई प्रति ने इस डिवाइस की प्रति को बदल दिया। | Conflict notification banner. | |
+| `src/features/cbt/locales/hi.json` | `cbt.sync.dismiss` | Dismiss | बंद करें | Banner dismiss action. | |
+| `src/features/cbt/locales/hi.json` | `cbt.activity.intro` | When mood is low, small planned activities can lift it. Plan something, do it, then rate your mood. Encrypted and synced to your account. | मन उदास हो तो छोटी योजनाबद्ध गतिविधियाँ उसे उठा सकती हैं। कुछ तय करें, करें, फिर अपना मूड आँकें। एन्क्रिप्ट होकर आपके खाते में सिंक होता है। | Changed from "केवल इसी डिवाइस पर सहेजा जाता है।" to synced disclosure. | |
+| `src/features/cbt/locales/hi.json` | `cbt.worry.intro` | Pick a daily 15 to 20 minute slot for worrying. When a worry shows up at other times, park it here and come back to it later. Encrypted and synced to your account. | चिंता करने के लिए रोज़ 15 से 20 मिनट का समय तय करें। बाकी समय कोई चिंता आए तो उसे यहाँ रख दें और बाद में देखें। एन्क्रिप्ट होकर आपके खाते में सिंक होता है। | Changed from "केवल इसी डिवाइस पर सहेजा जाता है।" to synced disclosure. | |
+| `src/features/crisis/locales/hi.json` | `safetyCard.deviceOnly` | Encrypted and synced to your account. Your anchors are encrypted with your vault passphrase, so MindSahaay cannot read them, and they appear on your other devices after you unlock. | एन्क्रिप्ट होकर आपके खाते में सिंक होता है। आपके एंकर आपके वॉल्ट पासफ़्रेज़ से एन्क्रिप्ट होते हैं, इसलिए MindSahaay उन्हें पढ़ नहीं सकता, और अनलॉक करने के बाद वे आपके दूसरे डिवाइस पर भी दिखते हैं। | Updated from local-only disclaimer to encrypted multi-device sync explanation. | |
