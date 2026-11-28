@@ -65,7 +65,7 @@ describe("Doctors: directory and booking", () => {
     expect(within(list).queryByText("Unverified")).not.toBeInTheDocument();
 
     const slots = await screen.findByRole("group", { name: "Available slots" });
-    expect(within(slots).getAllByRole("button")).toHaveLength(2);
+    await waitFor(() => expect(within(slots).getAllByRole("button")).toHaveLength(2));
   });
 
   it("books through POST /appointments and reports the booking to the host app", async () => {

@@ -63,7 +63,7 @@ describe("Campus Circles", () => {
     const user = userEvent.setup();
     render(<CirclesPanel />);
     const list = await screen.findByRole("list", { name: "Circles" });
-    const hostel = within(list).getByRole("heading", { name: "Hostel Life" }).closest("li") as HTMLElement;
+    const hostel = (await within(list).findByRole("heading", { name: "Hostel Life" })).closest("li") as HTMLElement;
     await user.click(within(hostel).getByRole("button", { name: "Join circle" }));
     await waitFor(() => expect(fake.tables.circle_members.some((m) => m.circle_id === "ci-2")).toBe(true));
     await user.click(within(hostel).getByRole("button", { name: "Leave circle" }));
@@ -202,14 +202,14 @@ describe("Campus Circles", () => {
     const user = userEvent.setup();
     const first = render(<CirclesPanel />);
     const list = await screen.findByRole("list", { name: "Circles" });
-    const hostel = within(list).getByRole("heading", { name: "Hostel Life" }).closest("li") as HTMLElement;
+    const hostel = (await within(list).findByRole("heading", { name: "Hostel Life" })).closest("li") as HTMLElement;
     await user.click(within(hostel).getByRole("button", { name: "Join circle" }));
     await within(hostel).findByRole("button", { name: "Leave circle" });
     first.unmount();
     render(<CirclesPanel />);
     const again = await screen.findByRole("list", { name: "Circles" });
-    const hostel2 = within(again).getByRole("heading", { name: "Hostel Life" }).closest("li") as HTMLElement;
-    expect(within(hostel2).getByRole("button", { name: "Leave circle" })).toBeInTheDocument();
+    const hostel2 = (await within(again).findByRole("heading", { name: "Hostel Life" })).closest("li") as HTMLElement;
+    expect(await within(hostel2).findByRole("button", { name: "Leave circle" })).toBeInTheDocument();
   });
 
   it("opens and closes the safe-space norms dialog", async () => {
