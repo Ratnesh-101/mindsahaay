@@ -36,6 +36,10 @@ import { decryptJournal } from "../../domain/crypto/journalCrypto";
 import CounsellorDashboard from "./CounsellorDashboard";
 import { fetchSessionNotes, isShareCurrent, packNote, saveSessionNote, sortRiskQueue, unpackNote, type RiskEvent } from "./api";
 
+// PBKDF2 key derivation (note encrypt/decrypt) can take many seconds when the full suite runs in parallel.
+// Waits that depend on it get this explicit timeout instead of Testing Library's 1s default.
+const SLOW = { timeout: 30000 };
+
 const future = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
 const past = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
 
@@ -159,11 +163,20 @@ describe("Counsellor dashboard", () => {
     unmount();
 
     seed();
-    const spy = vi.spyOn(fakeSupabase, "from").mockImplementationOnce(() => {
-      throw new Error("boom");
+    // Fail only the caseload query. The first render's RiskQueue can still be finishing its own from("risk_queue")
+    // call after unmount (its mount effect may flush late under load), and a blanket one-shot throw would be used up there.
+    const realFrom = fakeSupabase.from;
+    let caseloadFailed = false;
+    const spy = vi.spyOn(fakeSupabase, "from").mockImplementation((table: string) => {
+      if (table === "care_shares" && !caseloadFailed) {
+        caseloadFailed = true;
+        throw new Error("boom");
+      }
+      return realFrom(table);
     });
     render(<CounsellorDashboard />);
     expect(await screen.findByText(/could not load your dashboard/i)).toBeInTheDocument();
+    expect(caseloadFailed).toBe(true);
     spy.mockRestore();
     await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByRole("button", { name: "Open Calm River" })).toBeInTheDocument();
@@ -179,7 +192,7 @@ describe("Encrypted session notes", () => {
     await user.click(await screen.findByRole("button", { name: "Open Calm River" }));
     await user.type(await screen.findByLabelText("Session note"), "Student reports poor sleep before exams.");
     await user.click(screen.getByRole("button", { name: "Encrypt and save note" }));
-    expect(await screen.findByText("Note encrypted and saved.")).toBeInTheDocument();
+    expect(await screen.findByText("Note encrypted and saved.", undefined, SLOW)).toBeInTheDocument();
     expect(screen.getByText("Student reports poor sleep before exams.")).toBeInTheDocument();
 
     const row = fake.tables.session_notes[0];
@@ -212,7 +225,7 @@ describe("Encrypted session notes", () => {
     await user.click(await screen.findByRole("button", { name: "Open Calm River" }));
     await user.type(await screen.findByLabelText("Session note"), "Follow up on sleep in two weeks.");
     await user.click(screen.getByRole("button", { name: "Encrypt and save note" }));
-    await screen.findByText("Note encrypted and saved.");
+    await screen.findByText("Note encrypted and saved.", undefined, SLOW);
     first.unmount();
 
     lockVault();
@@ -222,7 +235,7 @@ describe("Encrypted session notes", () => {
     expect(screen.queryByText("Follow up on sleep in two weeks.")).not.toBeInTheDocument();
     await user.type(screen.getByLabelText("Passphrase"), PASS);
     await user.click(screen.getByRole("button", { name: "Unlock" }));
-    expect(await screen.findByText("Follow up on sleep in two weeks.")).toBeInTheDocument();
+    expect(await screen.findByText("Follow up on sleep in two weeks.", undefined, SLOW)).toBeInTheDocument();
   });
 
   it("a failed note save shows an alert, no success message, and keeps the text", { timeout: 60000 }, async () => {
@@ -233,7 +246,7 @@ describe("Encrypted session notes", () => {
     await user.type(await screen.findByLabelText("Session note"), "Keep this note text.");
     fake.failTables = ["session_notes"];
     await user.click(screen.getByRole("button", { name: "Encrypt and save note" }));
-    expect(await screen.findByText("We could not save the note.")).toBeInTheDocument();
+    expect(await screen.findByText("We could not save the note.", undefined, SLOW)).toBeInTheDocument();
     expect(screen.queryByText("Note encrypted and saved.")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Session note")).toHaveValue("Keep this note text.");
   });

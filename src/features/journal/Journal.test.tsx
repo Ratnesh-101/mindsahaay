@@ -11,6 +11,9 @@ import { getVaultPassphrase, lockVault, readVaultMeta, validateRecoveryCode } fr
 import { decryptJournal } from "../../domain/crypto/journalCrypto";
 
 const PASS = "correct horse battery";
+// PBKDF2 key derivation (vault create/unlock, entry encrypt/decrypt) can take many seconds when the full suite runs in parallel.
+// Waits that depend on it get this explicit timeout instead of Testing Library's 1s default.
+const SLOW = { timeout: 30000 };
 
 beforeAll(async () => {
   await setupI18n("en");
@@ -40,7 +43,7 @@ async function createVaultThroughUi(user: ReturnType<typeof userEvent.setup>): P
   await user.click(screen.getByRole("checkbox"));
   expect(create).toBeEnabled();
   await user.click(create);
-  await screen.findByLabelText("Your reflection");
+  await screen.findByLabelText("Your reflection", undefined, SLOW);
   return code;
 }
 
@@ -61,7 +64,7 @@ describe("Journal: vault, encryption and entries", () => {
     await user.type(screen.getByLabelText("Your reflection"), "I felt very anxious about the thermodynamics paper.");
     await user.click(screen.getByRole("button", { name: "Save private entry" }));
 
-    await screen.findByText("Entry encrypted and saved.");
+    await screen.findByText("Entry encrypted and saved.", undefined, SLOW);
     expect(await screen.findByRole("heading", { name: "Exam week" })).toBeInTheDocument();
     expect(screen.getByText("I felt very anxious about the thermodynamics paper.")).toBeInTheDocument();
 
@@ -88,7 +91,7 @@ describe("Journal: vault, encryption and entries", () => {
 
     await user.type(screen.getByLabelText("Your reflection"), "Quiet evening, finished the lab report.");
     await user.click(screen.getByRole("button", { name: "Save private entry" }));
-    await screen.findByText("Quiet evening, finished the lab report.");
+    await screen.findByText("Quiet evening, finished the lab report.", undefined, SLOW);
 
     // Lock: the entry text disappears and the unlock screen appears.
     await user.click(screen.getByRole("button", { name: "Lock journal" }));
@@ -99,21 +102,21 @@ describe("Journal: vault, encryption and entries", () => {
     // Wrong passphrase.
     await user.type(screen.getByLabelText("Passphrase"), "not the passphrase");
     await user.click(screen.getByRole("button", { name: "Unlock" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("not correct");
+    expect(await screen.findByRole("alert", undefined, SLOW)).toHaveTextContent("not correct");
 
     // Recovery code path.
     await user.click(screen.getByRole("button", { name: "I forgot my passphrase" }));
     await user.type(screen.getByLabelText("Recovery code"), "AAAA-AAAA-AAAA-AAAA");
     await user.click(screen.getByRole("button", { name: "Unlock with recovery code" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("not correct");
+    expect(await screen.findByRole("alert", undefined, SLOW)).toHaveTextContent("not correct");
 
     await user.clear(screen.getByLabelText("Recovery code"));
     await user.type(screen.getByLabelText("Recovery code"), code.toLowerCase());
     await user.click(screen.getByRole("button", { name: "Unlock with recovery code" }));
-    expect(await screen.findByText("Vault unlocked with your recovery code")).toBeInTheDocument();
+    expect(await screen.findByText("Vault unlocked with your recovery code", undefined, SLOW)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Show passphrase" }));
     expect(screen.getByTestId("recovered-passphrase")).toHaveTextContent(PASS);
-    await screen.findByText("Quiet evening, finished the lab report.");
+    await screen.findByText("Quiet evening, finished the lab report.", undefined, SLOW);
 
     // Delete needs a second, explicit confirmation.
     await user.click(screen.getByRole("button", { name: /Delete entry/ }));
@@ -156,7 +159,7 @@ describe("Journal: persistence across a reload (U3 audit)", () => {
     await createVaultThroughUi(user);
     await user.type(screen.getByLabelText("Your reflection"), "Saved before the reload.");
     await user.click(screen.getByRole("button", { name: "Save private entry" }));
-    await screen.findByText("Entry encrypted and saved.");
+    await screen.findByText("Entry encrypted and saved.", undefined, SLOW);
     first.unmount();
 
     // Reload: the passphrase lived only in memory.
@@ -168,7 +171,7 @@ describe("Journal: persistence across a reload (U3 audit)", () => {
 
     await user.type(screen.getByLabelText("Passphrase"), PASS);
     await user.click(screen.getByRole("button", { name: "Unlock" }));
-    expect(await screen.findByText("Saved before the reload.")).toBeInTheDocument();
+    expect(await screen.findByText("Saved before the reload.", undefined, SLOW)).toBeInTheDocument();
   });
 
   it("a failed save shows an alert, no success message, and keeps the text for retry", { timeout: 60000 }, async () => {
@@ -192,7 +195,7 @@ describe("Journal: crisis wording", () => {
     await createVaultThroughUi(user);
     await user.type(screen.getByLabelText("Your reflection"), "I want to end my life");
     await user.click(screen.getByRole("button", { name: "Save private entry" }));
-    const card = await screen.findByTestId("journal-crisis");
+    const card = await screen.findByTestId("journal-crisis", undefined, SLOW);
     expect(card).toHaveTextContent("14416");
     expect(card).toHaveTextContent("1800-599-0019");
     expect(card).toHaveTextContent("112");
