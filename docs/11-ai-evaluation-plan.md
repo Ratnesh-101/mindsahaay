@@ -65,25 +65,54 @@ Other v2 heldout figures: flagged at moderate or above for high+imminent 0.800, 
 - Largest v2 heldout misses: euphemisms ("sleep and not wake up", "unalive"), "in progress" attempts ("I took something to make it all stop"), passive ideation without the key phrase, and Hindi paraphrases. Some of these are the most dangerous cases.
 - Known v2 limits: no handling of past tense or conditionals ("I used to want to die" is still flagged, which is the safe direction); a rule-family approach misses paraphrases outside the families.
 
-### 0.5 LLM-only and hybrid: PENDING
+### 0.5 LLM-only and hybrid: PENDING (Claude & Gemini Providers)
 
 | System | Status | Why |
 |---|---|---|
-| B LLM-only | **PENDING, not run** | Needs a human with an Anthropic API key. No number exists, and none may be reported until it is run. |
-| C Hybrid (more severe of lexicon and LLM) | **PENDING, not run** | Same. |
+| B LLM-only (Claude) | **PENDING, not run** | Needs a human with an Anthropic API key. No number exists, and none may be reported until it is run. |
+| B LLM-only (Gemini) | **PENDING, not run** | Needs a human with a Google Gemini API key (`AI_PROVIDER=gemini`). Live endpoint and model id (`gemini-3.8-flash`) are **unverified** against the live Google API. |
+| C Hybrid (more severe of lexicon and LLM) | **PENDING, not run** | Same. Untested for both Claude and Gemini. |
 
-`eval/results/comparison.md` shows "not run" for both columns. The hypothesis in section 1 (hybrid >= LLM >= keyword) is untested.
+`eval/results/comparison.md` shows "not run" for both columns. The hypothesis in section 1 (hybrid >= LLM >= keyword) is untested on live models.
 
-Commands (Windows PowerShell, from the project root; Node 22.6 or newer; about 600 API calls per system, so this costs money, TODO estimate with the current price list):
+#### Multi-Provider Evaluation Architecture
+
+With the introduction of the Google Gemini provider (docs/34), the evaluation framework can evaluate both Anthropic Claude and Google Gemini:
+
+1. **Anthropic Claude Classifier:** Calls Claude Messages API with tool use / structured schema (`classify_risk`), `temperature: 0`.
+2. **Google Gemini Classifier:** Calls `POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent` with header `x-goog-api-key: $GEMINI_API_KEY`.
+   - Uses `systemInstruction` for the classification prompt.
+   - Constrained JSON output: `generationConfig: { temperature: 0, responseMimeType: "application/json", responseSchema: { type: "STRING", enum: ["crisis", "moderate", "low", "none"] } }`.
+   - Token accounting: `usageMetadata.promptTokenCount` and `candidatesTokenCount`.
+   - Safety thresholds: Classifier must be configured with `BLOCK_NONE` across all 4 categories (`HARM_CATEGORY_HARASSMENT`, `HARM_CATEGORY_HATE_SPEECH`, `HARM_CATEGORY_SEXUALLY_EXPLICIT`, `HARM_CATEGORY_DANGEROUS_CONTENT`). Otherwise, Google's safety filter drops crisis messages before the classifier can return a label. If blocked for `HARM_CATEGORY_DANGEROUS_CONTENT`, the pipeline fails safe to `CRISIS`. Any other block fails safe to degraded fallback (template + helplines).
+3. **Free-Tier Quota & Rate Limit Throttling:**
+   - Google AI Studio free tier enforces strict rate limits (e.g. 15 RPM / 1,500 RPD for flash models).
+   - Running the full 600-item evaluation dataset under free tier without hitting HTTP 429 errors requires strict rate pacing (e.g., `GEMINI_CALLS_PER_MIN=12`, pacing the run over ~50 minutes) or running on paid tier / Vertex AI.
+   - Default model identifier `gemini-3.8-flash` (or `gemini-3.5-flash-lite` for lower quota) is **unverified** against the live API table.
+
+Commands (Windows PowerShell, from the project root; Node 22.6 or newer; about 600 API calls per system):
 
 ```powershell
+# Option A: Anthropic Claude
+$env:AI_PROVIDER = "claude"
 $env:ANTHROPIC_API_KEY = "sk-ant-..."     # your key, never commit it
 node scripts/eval-llm.ts                  # writes eval/results/llm.json and llm.md
 node scripts/eval-hybrid.ts --reuse-llm   # reuses llm.json, writes hybrid.json and hybrid.md
 node scripts/eval-report.ts               # rewrites eval/results/comparison.md
+
+# Option B: Google Gemini (Free or Paid Tier)
+$env:AI_PROVIDER = "gemini"
+$env:GEMINI_API_KEY = "AIzaSy..."         # your key, never commit it
+$env:GEMINI_MODEL = "gemini-3.8-flash"    # unverified model ID; or gemini-3.5-flash-lite
+$env:AI_DATA_TIER = "free"
+$env:AI_ALLOW_FREE_TIER = "true"
+$env:GEMINI_CALLS_PER_MIN = "12"          # throttle to stay within 15 RPM free limit
+node scripts/eval-llm.ts                  # writes eval/results/llm.json and llm.md
+node scripts/eval-hybrid.ts --reuse-llm
+node scripts/eval-report.ts
 ```
 
-Optional smoke test with a few items first: `node scripts/eval-llm.ts --limit 20`. Without a key both LLM scripts exit with code 2 and a message. `scripts/eval-hybrid.ts --reuse-llm` still requires the key, and exits with code 3 if `llm.json` is missing.
+Optional smoke test with a few items first: `node scripts/eval-llm.ts --limit 20`. Without a key the script exits with code 2 and a message. A live smoke test against external endpoints runs only if both `GEMINI_API_KEY` and `RUN_LIVE_AI=1` are present (using synthetic text only).
 
 After the run, update this section with: model name, run date and prompt hash (printed by the script; the model is set in `scripts/lib/claude.ts`), and report the **heldout subset** numbers, not only the whole-dataset ones, because the lexicon was shaped on dev items. TODO: the scripts report whole-dataset metrics; a heldout-only breakdown for LLM and hybrid needs a small change or a post-hoc filter with `eval/splits/split.json`. Also run each system more than once (plan section 3) to measure flip rate.
 
@@ -143,7 +172,7 @@ Annotation: two annotators label independently (crisis / not), disagreement reso
 | System | Description |
 |---|---|
 | A Keyword | Normalised text, curated multilingual keyword and pattern list (including the current prototype words: suicide, kill myself, end my life, want to die, hurt myself, cutting myself, better off dead; extended to Hindi and Hinglish) |
-| B LLM | Claude classifier with a fixed prompt, output restricted to `crisis` or `not_crisis` plus a confidence, temperature 0 |
+| B LLM | Claude (`claude-opus-5-5`) or Google Gemini (`gemini-3.8-flash` unverified, or `gemini-3.5-flash-lite`) classifier with fixed prompt, structured JSON enum output (`crisis`, `moderate`, `low`, `none`), temperature 0 |
 | C Hybrid | Crisis if A or B is positive |
 
 TODO: record model name, version, date and prompt hash. The model may change over time, so results are dated.

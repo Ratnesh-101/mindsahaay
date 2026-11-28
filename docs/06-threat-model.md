@@ -54,6 +54,7 @@ Known prototype weakness: `studentId` is a URL parameter and the anon key is the
 | TH-40 | Retention not enforced | | | | x | | | **Wave 3, 2026-11-27.** Client manipulates `retention_expires_at` or `created_at` on chat messages to keep chats indefinitely, violating DPDP storage limitation (PR-05). Control: `BEFORE INSERT` trigger `trg_chat_messages_force_dates` forces `created_at = now()` and `retention_expires_at = now() + interval '30 days'`; RLS SELECT policy filters `retention_expires_at > now()`; `purge_expired_chat_messages()` deletes expired rows and empty old sessions. Regression: pgTAP 16 (verifies client timestamp override, select filtering of expired rows, and purge function execution). |
 | TH-41 | Decrypted transcript after lock | | | | x | | | **Wave 3, 2026-11-27.** After a student locks their vault or walks away from a shared device, decrypted chat messages or session decryption keys linger in browser memory or on-screen. Control: `lockVault()` and `clearVaultState()` invoke `clearChatKeys()` which purges every derived CryptoKey from the session key cache Map; UI state immediately unmounts/resets the decrypted transcript; re-entering chat requires unlocking the vault with the passphrase. Regression: `src/features/chat/chatCrypto.test.ts` (key cache cleared), `src/features/chat/ChatPersistence.test.tsx`, and `e2e/real/chat-persistence.spec.ts`. |
 | TH-42 | Synced blob / server copy | | x | | x | | | **Wave 3, 2026-11-27.** Server tampering, conflict overwrite, or server operator reading synchronized CBT activities, worry-time, or safety-card anchors (including third-party trusted-contact name and phone). Control: Table `encrypted_blobs` stores only ciphertext, IV, and salt under opaque slot identifiers (`mindsahaay_sec_*`); `put_blob` RPC enforces atomic version check (`VERSION_CONFLICT` on version mismatch); local writes always precede sync; on conflict the newer server version wins; RLS owner-only (`user_id = auth.uid()`), zero access for counsellors/moderators/admins; account erasure cascades foreign key delete. Residual: Third-party trusted contact data is protected only by the vault passphrase strength; only `cbt_activities` slot is tested in real browser; VERSION_CONFLICT UI recovery tested in unit tests only. Regression: pgTAP 17 and `e2e/real/blob-sync.spec.ts`. |
+| TH-43 | LLM provider boundary / free tier | | x | | x | x | | **Wave 4, 2026-11-28.** Provider-swap boundary and Google Gemini free-tier data exposure. In unpaid tier (Google AI Studio), terms permit human review and training on prompts/responses. Swapping LLM provider could inadvertently expose mental-health conversations to third-party model training, bypass safety constraints, or exhaust free-tier quotas (causing denial of service / HTTP 429). Control: Two-tier gate in server (`AI_DATA_TIER=free` rejected unless `AI_ALLOW_FREE_TIER=true` explicitly set); PII scrubbing / redaction runs before any text reaches Google endpoints; non-dismissible red warning banner and `sessionStorage` acknowledgement gate in UI when data tier is free; API key sent ONLY via `x-goog-api-key` header (never in URL or query params); rate limits (`GEMINI_CALLS_PER_MIN`, `GEMINI_CALLS_PER_DAY`) fail safe to deterministic template + helplines with no unhandled errors and no retries in-request; classifier safety settings set `BLOCK_NONE` (if blocked for dangerous content, server fails safe to CRISIS); free tier restricted to demo/dev with synthetic text only; production requires paid Gemini/Vertex or Claude with DPA. Regression: `supabase/functions/server/gemini_client.test.ts`, `ChatFreeTier.test.tsx`. Residual: Live Google endpoint path unverified; free tier terms strictly forbid sensitive health data without DPA (L60, L61). |
 ### 2.1 Detail: a student could resolve their own risk event (TH-21)
 
 - **What it was.** `risk_events` carried an UPDATE policy named "Counsellors or owners can update risk event resolution". Its owner branch let the student who owns the row update it. Through the normal REST endpoint a signed-in student could send a PATCH with `resolved = true` (or a new `action_taken`) for their own event.
@@ -69,10 +70,10 @@ Known prototype weakness: `studentId` is a URL parameter and the anon key is the
 | V1 Architecture | This document, 03-architecture.md | Planned |
 | V2 Authentication | Supabase Auth, TH-01, TH-02 | Planned |
 | V3 Session management | JWT expiry, refresh, logout | Planned |
-| V4 Access control | RLS, role views, TH-03, TH-13, TH-21, TH-26, TH-27, TH-33, TH-36, TH-38, TH-42 | Planned |
+| V4 Access control | RLS, role views, TH-03, TH-13, TH-21, TH-26, TH-27, TH-33, TH-36, TH-38, TH-42, TH-43 | Planned |
 | V5 Validation, sanitisation, encoding | Input length caps, output encoding, TH-19 | Planned |
 | V7 Error handling and logging | No content in logs, generic errors | Planned |
-| V8 Data protection | Client-side encryption, retention, TH-05, TH-22, TH-24, TH-38, TH-40, TH-41, TH-42 | Planned |
+| V8 Data protection | Client-side encryption, retention, TH-05, TH-22, TH-24, TH-38, TH-40, TH-41, TH-42, TH-43 | Planned |
 | V9 Communications | TLS, HSTS | Planned |
 | V10 Malicious code | Dependency audit, TH-17 | Planned |
 | V11 Business logic | Booking uniqueness, rate limits | Planned |
@@ -87,7 +88,7 @@ The ASVS mapping above is still a plan and nothing in it is marked Verified. Sta
 | Risk | Relevance | Control | Threat |
 |---|---|---|---|
 | LLM01 Prompt injection | High | Instruction hierarchy, input delimiting, output filter, crisis outside model | TH-07 |
-| LLM02 Sensitive information disclosure | High | No cross-user context, minimal PII to model, no secrets in prompt | TH-08 |
+| LLM02 Sensitive information disclosure | High | No cross-user context, minimal PII to model, no secrets in prompt, free-tier data use gating and PII redaction | TH-08, TH-43 |
 | LLM03 Supply chain | Medium | Pinned SDK versions, audit | TH-17 |
 | LLM04 Data and model poisoning | Low | No fine-tuning | TH-20 |
 | LLM05 Improper output handling | High | Plain-text render, filter | TH-10 |
@@ -95,7 +96,7 @@ The ASVS mapping above is still a plan and nothing in it is marked Verified. Sta
 | LLM07 System prompt leakage | Low | Prompt contains no secrets | TH-08 |
 | LLM08 Vector and embedding weaknesses | N/A | No RAG in v1 (TODO revisit if coping library retrieval added) | n/a |
 | LLM09 Misinformation | High | No-diagnosis rule, evaluation, disclaimer | TH-10 |
-| LLM10 Unbounded consumption | Medium | Rate limits and budget | TH-09 |
+| LLM10 Unbounded consumption | Medium | Rate limits and budget, provider call limits (GEMINI_CALLS_PER_MIN/DAY) with fail-safe fallback | TH-09, TH-43 |
 
 ## 5. Security testing
 

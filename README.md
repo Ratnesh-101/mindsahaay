@@ -2,13 +2,13 @@
 
 A privacy-first, educational wellbeing platform for Indian university students. It offers mood tracking, self-assessments (PHQ-4, PHQ-9, GAD-7), an AI companion in English, Hindi and Hinglish, an encrypted journal, counsellor booking and moderated peer circles. A crisis safety path (Tele-MANAS 14416, KIRAN 1800-599-0019, emergency 112) is built into every free-text feature.
 
-Stack: React 19, Vite, Tailwind CSS v4, TypeScript, Supabase (Auth, Postgres with row level security, Edge Functions), Claude API through a server proxy.
+Stack: React 19, Vite, Tailwind CSS v4, TypeScript, Supabase (Auth, Postgres with row level security, Edge Functions), Claude API (default) or Google Gemini API through a server proxy.
 
 > **Disclaimer.** MindSahaay is a student capstone project. It is educational. It is **not a medical device**, it does not diagnose or treat any condition, and it is not a substitute for a doctor, counsellor or emergency service. It has had **no clinical review** and **no real-user study**. If you or someone you know is in danger, call **112**, or call **Tele-MANAS 14416** or **KIRAN 1800-599-0019** (both 24/7).
 
 ## Honest status
 
-Last updated 2026-11-27 (chat persistence and encrypted blob sync change set, docs/33). Full detail is in [docs/02-srs.md](docs/02-srs.md) (traceability matrix) and [docs/19-known-limitations.md](docs/19-known-limitations.md).
+Last updated 2026-11-28 (Google Gemini AI provider integration, docs/34). Full detail is in [docs/02-srs.md](docs/02-srs.md) (traceability matrix) and [docs/19-known-limitations.md](docs/19-known-limitations.md).
 
 Quality gates (2026-11-27): 0 TypeScript errors; 0 ESLint errors and 0 warnings on `src`; **Vitest: 85 files passed and 1 skipped (86), 950 tests passed and 1 skipped** (the skipped one is the live smoke test that needs tokens; one transient Vitest flake of 7 timeouts under load occurred once and did not reproduce in 2 reruns); coverage statements 89.79%, branches 81.86%, functions 87.17%, lines 91.83% (scope `src/domain` and `src/features`; thresholds in `vitest.config.ts` are enforced). **Playwright, default run (`npx playwright test`): 102 passed** (102/102), Chromium only: 93 in the `chromium` project (57 axe accessibility combinations = 14 routes x light/dark x 1280 px/375 px with zero serious or critical violations, plus journeys, smoke and offline-UI specs) and 9 in the `pwa` project. **Real-backend Playwright (`pnpm test:e2e:real`, needs the local Supabase stack): 36 passed (36/36)** (covering sign-in and route sweep, the crisis follow-through loop with security attempts, offline mood and crisis outbox, shared-device case, fresh-account, demo-data, persistence, preview-flag, and now chat-persistence 9, blob-sync 3); consecutive green runs by workers and the lead. **pgTAP on a real local Postgres (Supabase CLI, Docker): 17 files, 231 tests, all passing** (migrations 0001 to 0010). Production build green; first route about 190.9 KB gzipped (budget 200 KB). Lighthouse and OWASP ZAP have **not** been run. Firefox, WebKit and real-device PWA install are **not** tested. Hosted Supabase, the Anthropic chat route and Daily.co video are **not verified**. Requirements matrix (`node scripts/req-status.mjs`): Implemented 3, Partial 67, Not started 9 of 79.
 
@@ -24,7 +24,7 @@ Quality gates (2026-11-27): 0 TypeScript errors; 0 ESLint errors and 0 warnings 
 | PHQ-4, PHQ-9, GAD-7 with educational disclaimers; PHQ-9 item 9 triggers the crisis card | Implemented and unit tested |
 | Multilingual crisis lexicon (English, Hindi, Hinglish) | Implemented. Heldout recall 0.70 on synthetic data, below the 0.95 target. The server copy is generated from the client lexicon (`scripts/sync-lexicon.mjs`) and agrees with it on all 600 dataset rows |
 | LLM risk classification and hybrid crisis detection | Code written, **not evaluated** (LLM-only and hybrid results pending an API key; the scripts were verified against a mock server only) |
-| AI companion chat (streaming, output guard, rate limit, encrypted persistence) | Front end and edge function tested with mocks. The output guard runs on the server before any text is shown. Chat conversations are saved client-side encrypted with the vault key (AES-GCM, per-session salt, AAD), 30-day retention with purge trigger/RPC, past chat history, delete per session/all, per-conversation do-not-save toggle (docs/33, migration 0010; 9 real-backend specs pass). The real Claude route is **not verified** (needs `ANTHROPIC_API_KEY`) |
+| AI companion chat (streaming, output guard, rate limit, encrypted persistence) | Front end and edge function tested with mocks. Multi-provider architecture supports Claude (default) and Google Gemini (docs/34). The output guard runs on the server before any text is shown. Chat conversations are saved client-side encrypted with the vault key (AES-GCM, per-session salt, AAD), 30-day retention with purge trigger/RPC, past chat history, delete per session/all, per-conversation do-not-save toggle (docs/33, migration 0010; 9 real-backend specs pass). Free-tier Gemini mode includes a non-dismissible demo warning banner, an acknowledgement gate, and strict server-side gating. The real Claude and Gemini live routes are **not verified** against external endpoints (needs API keys) |
 | Encrypted journal, CBT toolkit and synced blobs (AES-256-GCM, passphrase, recovery code) | Implemented and unit tested. CBT records, safety-card anchors and the trusted contact are stored only as ciphertext under opaque keys and are unreadable while the vault is locked (browser-verified); they now sync across devices as encrypted blobs via `encrypted_blobs` and `put_blob` (migration 0010, docs/33; 3 real-backend specs pass); the safety card still shows helplines while locked |
 | Consent ledger, JSON export, erase account | Implemented. Export returns the caller's own data including encrypted chat and synced blob rows (identity from the token, verified through the API against the real edge runtime). One `clearAllLocalUserData()` runs on logout and erase |
 | Counsellor directory, booking, cancellation, video token | Directory and slots show real seeded data from a local database (manual browser check). Booking concurrency not exercised. Daily.co video tokens **not verified** (need `DAILY_API_KEY`) |
@@ -104,7 +104,7 @@ The dev server listens on the `PORT` variable (default 8443) with a strict port.
 
 If the `VITE_SUPABASE_*` variables are missing, the app has no backend (the old hard-coded fallback project in `utils/supabase/info.tsx` was removed). Set both variables for any real use, or use Demo Mode.
 
-Backend setup, secrets (`ANTHROPIC_API_KEY`, `DAILY_API_KEY`, `ALLOWED_ORIGINS`), Vercel and GitHub Actions: [docs/17-deployment-guide.md](docs/17-deployment-guide.md).
+Backend setup, secrets (`AI_PROVIDER`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `DAILY_API_KEY`, `ALLOWED_ORIGINS`), Vercel and GitHub Actions: [docs/17-deployment-guide.md](docs/17-deployment-guide.md) and [docs/34-gemini-provider.md](docs/34-gemini-provider.md).
 
 ## Scripts
 
@@ -176,7 +176,7 @@ Start at the index: [docs/00-README.md](docs/00-README.md).
 | [21](docs/21-sql-audit.md), [22](docs/22-edge-function-tests.md), [23](docs/23-frontend-security-audit.md) | SQL audit and local execution, edge function tests, frontend security audit |
 | [24](docs/24-crisis-followup.md), [25](docs/25-offline-pwa.md), [26](docs/26-pwa-shell.md), [27](docs/27-hindi-review.md) | Crisis follow-through loop, offline outbox, PWA shell, Hindi review |
 | [28](docs/28-new-features-security-review.md), [29](docs/29-real-backend-e2e.md), [30](docs/30-feature-selection-tournament.md) | Independent security review, real-backend end-to-end tests, feature-selection tournament |
-| [31](docs/31-demo-data.md), [32](docs/32-persistence-audit.md), [33](docs/33-chat-persistence-and-sync.md) | Demo data contract, persistence audit, chat persistence & encrypted blob sync |
+| [31](docs/31-demo-data.md), [32](docs/32-persistence-audit.md), [33](docs/33-chat-persistence-and-sync.md), [34](docs/34-gemini-provider.md) | Demo data contract, persistence audit, chat persistence & encrypted blob sync, Google Gemini AI provider |
 
 ## Privacy approach
 

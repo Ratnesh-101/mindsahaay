@@ -11,7 +11,7 @@ MindSahaay is a student project, educational and not a medical device. Do not pu
 | Web app (React, Vite) | Vercel (static site) | repository root, `pnpm build` produces `dist/` |
 | Database, Auth | Supabase project, Mumbai region | `supabase/migrations/0001..0008`, `supabase/seed.sql` |
 | API | Supabase Edge Function (Deno, Hono) | `supabase/functions/server` + `supabase/functions/_shared` |
-| AI companion | Anthropic Claude API, called only from the Edge Function | secret `ANTHROPIC_API_KEY` |
+| AI companion | Anthropic Claude API (default) or Google Gemini API, called only from the Edge Function | secrets/env `AI_PROVIDER`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` |
 | Video sessions | Daily.co, called only from the Edge Function | secret `DAILY_API_KEY` |
 
 ## 2. Prerequisites
@@ -75,19 +75,26 @@ The demo logins listed in `supabase/README.md` (for example `admin@mindsahaay.te
 
 ## 6. Edge Function and secrets
 
-### 6.1 Secrets
+### 6.1 Secrets and Environment Variables
 
 | Name | Used for | Notes |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Chat companion, risk classifier, moderation | Required for AI features. Server only. |
+| `AI_PROVIDER` | Selects AI backend: `claude` (default) or `gemini` | Any other value disables the model and routes chat to the deterministic fallback template + helplines. |
+| `ANTHROPIC_API_KEY` | Chat companion, risk classifier, moderation via Claude | Required if `AI_PROVIDER=claude`. Server only. |
+| `GEMINI_API_KEY` | Chat companion, risk classifier via Google Gemini | Required if `AI_PROVIDER=gemini`. Passed ONLY via header `x-goog-api-key` (never in the URL). Server only. |
+| `GEMINI_MODEL` | Gemini model identifier | Default is `gemini-3.8-flash` (unverified against live API; alternative `gemini-3.5-flash-lite`). Defined in one constant. |
+| `AI_DATA_TIER` | Data tier classification: `free` or `paid` | In free tier, Google terms permit human review and training on user content. |
+| `AI_ALLOW_FREE_TIER` | Explicit consent flag: `true` | The server strictly refuses Gemini calls (falls back to template path) unless `AI_DATA_TIER=paid`, OR (`AI_DATA_TIER=free` AND `AI_ALLOW_FREE_TIER=true`). |
+| `GEMINI_CALLS_PER_MIN` | Rate limit per minute for Gemini calls | Shared project-wide limit via `checkRateLimit` (key `llm:gemini:min`). Recommended ~80% of AI Studio quota (e.g. `12` for 15 RPM). |
+| `GEMINI_CALLS_PER_DAY` | Rate limit per day for Gemini calls | Shared project-wide limit via `checkRateLimit` (key `llm:gemini:day`). Recommended ~80% of AI Studio quota (e.g. `1200` for 1500 RPD). |
 | `DAILY_API_KEY` | Video room tokens | Optional. README says there is a mock fallback; TODO verify in code. |
 | `ALLOWED_ORIGINS` | CORS allow list, comma separated | Include your Vercel URL and, for local dev, `http://localhost:5173,http://localhost:8443` |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Edge Function database access | Supabase injects these into hosted functions by default. TODO confirm for your CLI version. |
 
-Set them:
+Set them for hosted deployment (paid tier only):
 
 ```powershell
-supabase secrets set ANTHROPIC_API_KEY=sk-ant-... DAILY_API_KEY=... ALLOWED_ORIGINS=https://your-app.vercel.app,http://localhost:5173
+supabase secrets set AI_PROVIDER=claude ANTHROPIC_API_KEY=sk-ant-... DAILY_API_KEY=... ALLOWED_ORIGINS=https://your-app.vercel.app,http://localhost:5173
 ```
 
 For local serving create `supabase/.env` (git-ignored) with the same names and run `supabase functions serve --env-file supabase/.env`. Never commit keys.
@@ -114,6 +121,47 @@ supabase functions deploy server
 The function also verifies the user JWT itself on every route except `/health`. TODO: check on a hosted project whether `verify_jwt = true` blocks the unauthenticated `/health` call and whether `--no-verify-jwt` is needed for it. Locally, `/health` works.
 
 Check: `GET <project-url>/functions/v1/server/health` should return a healthy status (verified locally on 2026-11-20; not on a hosted project).
+
+### 6.3 Owner Runbook: Running Locally with a Free Google Gemini API Key
+
+The owner can evaluate MindSahaay using a free Gemini API key from Google AI Studio. Follow these exact steps:
+
+1. **Verify git-ignore protection:**
+   Verify that `supabase/.env` is ignored before creating or editing it:
+   ```powershell
+   git check-ignore -v supabase/.env
+   ```
+   This must print a match rule (e.g. `.env*`). Never remove or bypass this ignore rule.
+
+2. **Create local environment file `supabase/.env`:**
+   Populate `supabase/.env` with the following variables:
+   ```ini
+   ALLOWED_ORIGINS=http://localhost:5173,http://localhost:8443
+   AI_PROVIDER=gemini
+   GEMINI_API_KEY=AIzaSy...                # Your Google AI Studio key
+   GEMINI_MODEL=gemini-3.8-flash           # Default flash model (unverified against live API)
+   AI_DATA_TIER=free
+   AI_ALLOW_FREE_TIER=true
+   GEMINI_CALLS_PER_MIN=12                 # ~80% of 15 RPM AI Studio free quota
+   GEMINI_CALLS_PER_DAY=1200               # ~80% of 1500 RPD AI Studio free quota
+   ```
+
+3. **Start local edge functions:**
+   ```powershell
+   supabase functions serve --env-file supabase/.env
+   ```
+
+4. **Verify frontend chat behaviour:**
+   - On the Chat screen, an authenticated client calls `GET /chat/config` and receives `{ provider: 'gemini', dataTier: 'free' }`.
+   - A non-dismissible red banner appears above the chat:
+     > **Demo mode:** Messages go to Google's free Gemini service, may be read by human reviewers and used to improve Google products. Do not enter real or identifying information.
+   - Before the first message can be sent, a one-time acknowledgement modal is presented to the user. Once accepted, this state is recorded in `sessionStorage` only (never persisted to the server or `localStorage`).
+   - If rate limits (`GEMINI_CALLS_PER_MIN` or `GEMINI_CALLS_PER_DAY`) are reached or Google returns HTTP 429, the system gracefully falls back to deterministic empathetic templates + helplines with no errors shown to the user.
+
+5. **CRITICAL SECURITY AND PRIVACY RULES FOR THE OWNER:**
+   - **NEVER** run `supabase secrets set GEMINI_API_KEY=...` on a hosted Supabase project using a free-tier key. Google AI Studio unpaid terms allow human reviewers to read submitted prompts/responses and use them to train Google models, violating mental health confidentiality and DPDP purpose limitations.
+   - **Synthetic Test Data Only:** Only enter synthetic, fictitious, or test messages during demo mode. Never enter real student names, roll numbers, or personal distress narratives.
+   - **Rotate After Demo:** Immediately delete or rotate the API key in Google AI Studio once the demonstration or evaluation is concluded.
 
 ## 7. Frontend environment variables
 
