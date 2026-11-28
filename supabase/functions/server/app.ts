@@ -36,6 +36,7 @@ import {
 import { checkCrisisLexicon, getCrisisResponseTemplate } from "../_shared/lexicon.ts";
 import { redactPII } from "../_shared/pii.ts";
 import type { DPDPExportPayload } from "../_shared/types.ts";
+import { isGeminiAllowed, type GeminiFactory } from "./gemini_client.ts";
 
 export interface VerifiedUser {
   id: string;
@@ -53,6 +54,8 @@ export interface AppDeps {
   getUserClient: (jwt: string) => any;
   /** Anthropic client factory. When omitted the companion uses safe template replies only. */
   createAnthropic?: AnthropicFactory;
+  /** Gemini client factory. When omitted or refused the companion uses safe template replies only. */
+  createGemini?: GeminiFactory;
   /** Outbound fetch for Daily.co. Defaults to global fetch. */
   fetchImpl?: typeof fetch;
 }
@@ -60,6 +63,39 @@ export interface AppDeps {
 export function createApp(deps: AppDeps) {
   const fetchImpl = deps.fetchImpl ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
   const app = new Hono();
+
+  function getLlmProvider(adminClient?: any): {
+    apiKey?: string;
+    createClient?: AnthropicFactory;
+  } {
+    const rawProvider = (deps.env("AI_PROVIDER") || "claude").toLowerCase().trim();
+    if (rawProvider === "gemini") {
+      if (!isGeminiAllowed(deps.env)) {
+        return { apiKey: undefined, createClient: undefined };
+      }
+      const apiKey = deps.env("GEMINI_API_KEY");
+      if (!apiKey || !deps.createGemini) {
+        return { apiKey: undefined, createClient: undefined };
+      }
+      return {
+        apiKey,
+        createClient: (key: string) =>
+          deps.createGemini!(key, {
+            adminClient,
+            env: deps.env,
+            fetchImpl,
+          }),
+      };
+    }
+    if (rawProvider === "claude") {
+      const apiKey = deps.env("ANTHROPIC_API_KEY");
+      return {
+        apiKey: apiKey && deps.createAnthropic ? apiKey : undefined,
+        createClient: deps.createAnthropic,
+      };
+    }
+    return { apiKey: undefined, createClient: undefined };
+  }
 
   // Logger middleware
   app.use("*", logger(console.log));
@@ -502,7 +538,24 @@ export function createApp(deps: AppDeps) {
   });
 
   // ------------------------------------------------------------------------------
-  // 7. POST /chat/stream (Claude Opus 5.5 Streaming Companion Pipeline)
+  // 6b. GET /chat/config (Active AI Provider and Data Tier Configuration)
+  // ------------------------------------------------------------------------------
+  registerRoute("get", "/chat/config", requireAuth, async (c) => {
+    const rawProvider = (deps.env("AI_PROVIDER") || "claude").toLowerCase().trim();
+    const provider = rawProvider === "gemini" || rawProvider === "claude" ? rawProvider : "none";
+    const dataTier = (
+      deps.env("AI_DATA_TIER") ||
+      (provider === "gemini" ? "free" : provider === "claude" ? "paid" : "none")
+    ).toLowerCase().trim();
+
+    return c.json({
+      provider,
+      dataTier,
+    });
+  });
+
+  // ------------------------------------------------------------------------------
+  // 7. POST /chat/stream (Claude Opus 5.5 / Gemini Streaming Companion Pipeline)
   // ------------------------------------------------------------------------------
   registerRoute("post", "/chat/stream", requireAuth, async (c) => {
     const user = c.get("user");
@@ -528,7 +581,7 @@ export function createApp(deps: AppDeps) {
     }
 
     const { message, history } = parseResult.data;
-    const anthropicApiKey = deps.env("ANTHROPIC_API_KEY");
+    const llm = getLlmProvider(adminClient);
 
     // 3. Stream Response Setup via Server-Sent Events (SSE)
     const stream = new ReadableStream({
@@ -542,8 +595,8 @@ export function createApp(deps: AppDeps) {
         await streamMindMateCompanion({
           message,
           history,
-          apiKey: anthropicApiKey,
-          createClient: deps.createAnthropic,
+          apiKey: llm.apiKey,
+          createClient: llm.createClient,
           onPreparing: () => {
             sendEvent("preparing", { status: "preparing" });
           },
@@ -628,7 +681,8 @@ export function createApp(deps: AppDeps) {
     }
 
     const { message } = parseResult.data;
-    const anthropicApiKey = deps.env("ANTHROPIC_API_KEY");
+    const adminClient = getAdminClient();
+    const llm = getLlmProvider(adminClient);
 
     let fullReply = "";
     let isCrisis = false;
@@ -636,8 +690,8 @@ export function createApp(deps: AppDeps) {
 
     await streamMindMateCompanion({
       message,
-      apiKey: anthropicApiKey,
-      createClient: deps.createAnthropic,
+      apiKey: llm.apiKey,
+      createClient: llm.createClient,
       onChunk: (text) => {
         fullReply += text;
       },
@@ -996,7 +1050,8 @@ export function createApp(deps: AppDeps) {
 
     const { content, title } = parseResult.data;
     const fullText = title ? `${title}\n${content}` : content;
-    const anthropicApiKey = deps.env("ANTHROPIC_API_KEY");
+    const adminClient = getAdminClient();
+    const llm = getLlmProvider(adminClient);
 
     // 1. Deterministic Lexicon Check (English + Hinglish crisis terms)
     const lexicon = checkCrisisLexicon(fullText);
@@ -1004,8 +1059,8 @@ export function createApp(deps: AppDeps) {
     // 2. PII Detection & Redaction (phones, emails, Aadhaar, roll numbers)
     const pii = redactPII(fullText);
 
-    // 3. Structured Risk Classification
-    const risk = await classifyRiskLevel(fullText, anthropicApiKey, deps.createAnthropic);
+    // 3. Structured Risk Classification (redact PII first and use active LLM provider)
+    const risk = await classifyRiskLevel(pii.sanitized, llm.apiKey, llm.createClient);
 
     // 4. Output Guard Check (ensures non-clinical safe peer boundaries)
     const outputGuard = checkOutputGuard(fullText);

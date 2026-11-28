@@ -284,12 +284,15 @@ export async function streamMindMateCompanion(options: {
     }
 
     // 6. Pipeline Stage 5: Output Guard Check (Mandatory safety verification before delivery)
-    const guardResult = checkOutputGuard(fullGenerated);
+    const isReplyEmpty = !fullGenerated.trim();
+    const guardResult = isReplyEmpty
+      ? { safe: false, reason: "Output guard violation: empty generated reply." }
+      : checkOutputGuard(fullGenerated);
     let finalDeliveryText: string;
     let finalOutputTokens: number;
 
     if (!guardResult.safe) {
-      finalDeliveryText = getSafeFallbackReply(sanitized) + resourcesFooter;
+      finalDeliveryText = getSafeFallbackReply(sanitized) + (resourcesFooter || (isReplyEmpty ? getSupportResourcesFooter() : ""));
       finalOutputTokens = Math.ceil(finalDeliveryText.length / 4);
     } else {
       finalDeliveryText = fullGenerated + resourcesFooter;
@@ -313,7 +316,7 @@ export async function streamMindMateCompanion(options: {
   } catch (err: any) {
     // Pipeline Stage 6: Safe Template Fallback on any failure
     try {
-      const fallback = getSafeFallbackReply(message);
+      const fallback = getSafeFallbackReply(message) + getSupportResourcesFooter();
       const inTokens = Math.ceil(message.length / 4);
       const outTokens = Math.ceil(fallback.length / 4);
       onChunk(fallback);

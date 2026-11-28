@@ -5,6 +5,7 @@ import {
   classifyRiskLevel,
   classifyRiskLevelDetailed,
   getSafeFallbackReply,
+  getSupportResourcesFooter,
   streamMindMateCompanion,
   type CompanionMetadata,
 } from "./claude.ts";
@@ -189,8 +190,16 @@ describe("chat pipeline", () => {
     const fake = createFakeAnthropic({ classifier: "none", streamError: new Error("stream broke") });
     const r = await runPipeline("exam tomorrow", fake);
     expect(r.meta.degraded).toBe(true);
-    expect(r.full).toBe(getSafeFallbackReply("exam tomorrow"));
+    expect(r.full).toBe(getSafeFallbackReply("exam tomorrow") + getSupportResourcesFooter());
     expect(r.error).toBeUndefined();
+  });
+
+  it("empty generated reply counts as output guard failure and appends helpline footer", async () => {
+    const fake = createFakeAnthropic({ classifier: "none", chunks: ["   "] });
+    const r = await runPipeline("exam tomorrow", fake);
+    expect(r.full).toContain(getSafeFallbackReply("exam tomorrow"));
+    expect(r.full).toContain("14416");
+    expect(r.meta.isCrisis).toBe(false);
   });
 
   it("no API key: uses a safe template reply and never creates a client", async () => {

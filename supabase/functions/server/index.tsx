@@ -7,6 +7,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2.49.8";
 import { createApp } from "./app.ts";
 import { createAnthropicClient } from "./anthropic_client.ts";
+import { createGeminiClient } from "./gemini_client.ts";
 
 const env = (name: string) => Deno.env.get(name);
 
@@ -36,6 +37,7 @@ const app = createApp({
     return error || !user ? null : user;
   },
   createAnthropic: createAnthropicClient,
+  createGemini: createGeminiClient,
 });
 
 // @ts-ignore - Deno global serve
