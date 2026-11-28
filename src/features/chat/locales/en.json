@@ -12,6 +12,7 @@
     "send": "Send message",
     "logLabel": "Conversation with MindMate",
     "thinking": "MindMate is thinking...",
+    "checkingService": "Checking AI service...",
     "replied": "MindMate has replied.",
     "clear": "Clear conversation",
     "clearConfirm": "Yes, clear it",
@@ -52,6 +53,11 @@
     "dontSaveToggle": "Don't save this conversation",
     "notSavedThisConvo": "This conversation is not being saved.",
     "demoNotice": "Preview mode: conversations are not saved.",
+    "freeTier": {
+      "banner": "Demo mode: messages go to Google's free Gemini service, may be read by human reviewers and used to improve Google products. Do not enter real or identifying information.",
+      "gate": "Before you chat: this demo sends your messages to a free Google service. Please type only made-up or test messages, nothing real or identifying. Crisis helplines still work: Tele-MANAS 14416, KIRAN 1800-599-0019, Emergency 112.",
+      "accept": "I understand, continue"
+    },
     "notSavedYet": "Not saved yet",
     "pastConversations": "Past conversations",
     "noPastConversations": "No past conversations yet.",

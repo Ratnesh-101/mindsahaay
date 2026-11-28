@@ -27,6 +27,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const streamCalls = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.filter(([u]) => String(u).endsWith("/chat/stream"));
+
 function sse(tokens: string[]): Response {
   const body = tokens.map((t) => `data: ${JSON.stringify({ token: t })}\n\n`).join("") + "data: [DONE]\n\n";
   return new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } });
@@ -45,7 +47,7 @@ describe("Chat: labelling, streaming and degraded mode", () => {
     await user.click(screen.getByRole("button", { name: "Send message" }));
 
     await screen.findByText("Thank you for sharing.");
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(streamCalls(fetchSpy)).toHaveLength(1);
     const labels = screen.getAllByTestId("ai-label");
     expect(labels).toHaveLength(2);
     labels.forEach((l) => expect(l).toHaveTextContent("AI, not a human"));
@@ -183,7 +185,7 @@ describe("Chat: crisis interception", () => {
 
     // Inescapable: no dismiss control inside the card, and the AI network call never happened.
     expect(within(card).queryByRole("button", { name: /close|dismiss|hide/i })).not.toBeInTheDocument();
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(streamCalls(fetchSpy)).toHaveLength(0);
     expect(logChatCrisisEvent).toHaveBeenCalledTimes(1);
 
     // The composer is paused until the student acknowledges, and the card stays afterwards.

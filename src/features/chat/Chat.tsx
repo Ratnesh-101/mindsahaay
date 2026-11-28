@@ -10,6 +10,7 @@ import GroundingModal from "../modals/GroundingModal";
 import SafetyCardModal from "../modals/SafetyCardModal";
 import CrisisCard from "./CrisisCard";
 import { logChatCrisisEvent } from "./api";
+import { CHAT_CONFIG_TIMEOUT_MS, fetchChatConfig, isFreeTier, readFreeTierAck, writeFreeTierAck, type ChatConfig } from "./config";
 import { useVaultPassphrase } from "../journal/vault";
 import { isDemoModeActive } from "../auth/demoMode";
 import {
@@ -67,6 +68,11 @@ export default function Chat({
   const [confirmDeleteActive, setConfirmDeleteActive] = useState(false);
   const [modal, setModal] = useState<LocalModal>(null);
   const [notice, setNotice] = useState("");
+  const [chatConfig, setChatConfig] = useState<ChatConfig | null>(null);
+  const [freeTierAck, setFreeTierAck] = useState(readFreeTierAck);
+  // True until GET /chat/config resolves, fails, or times out. Holds sending so a fast first message
+  // cannot go out before the free-tier banner and gate are known.
+  const [configPending, setConfigPending] = useState(true);
 
   const logRef = useRef<HTMLDivElement>(null);
   const loggedRef = useRef(false);
@@ -77,6 +83,25 @@ export default function Chat({
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const crisisVisible = crisisSticky || isCrisis;
+  const freeTier = isFreeTier(chatConfig);
+  const gateOpen = freeTier && !freeTierAck;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    // Never block chat forever: after the timeout, proceed as if no banner applies.
+    const timer = setTimeout(() => setConfigPending(false), CHAT_CONFIG_TIMEOUT_MS);
+    void fetchChatConfig(controller.signal).then((cfg) => {
+      if (controller.signal.aborted) return;
+      clearTimeout(timer);
+      // A late free-tier answer still raises the banner and gate; it is never hidden.
+      setChatConfig(cfg);
+      setConfigPending(false);
+    });
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, []);
 
   // Clear chat helper
   const clearChat = useCallback(() => {
@@ -148,7 +173,7 @@ export default function Chat({
 
   const send = async (override?: string) => {
     const outgoing = (override ?? text).trim();
-    if (!outgoing || isStreaming || (crisisVisible && !crisisAcknowledged)) return;
+    if (!outgoing || isStreaming || gateOpen || (crisisVisible && !crisisAcknowledged)) return;
 
     // Deterministic pre-screen so the card appears at once, before any network round trip.
     const risk = detectRisk(outgoing);
@@ -156,6 +181,9 @@ export default function Chat({
       setCrisisSticky(true);
       setCrisisAcknowledged(false);
     }
+
+    // While the service check is in flight nothing is transmitted. The local crisis card above still shows.
+    if (configPending) return;
 
     setText("");
     setNotice("");
@@ -468,6 +496,16 @@ export default function Chat({
           </div>
         )}
 
+        {freeTier && (
+          <div
+            role="alert"
+            data-testid="free-tier-banner"
+            className="mx-3 mt-3 rounded-xl border border-red-800 bg-red-700 p-3 text-sm font-semibold text-white"
+          >
+            {t("chat.freeTier.banner")}
+          </div>
+        )}
+
         {crisisVisible && <CrisisCard onOpenSafetyPlan={openSafetyPlan} onMessageCounsellor={onMessageCounsellor} />}
 
         {degraded && (
@@ -571,7 +609,7 @@ export default function Chat({
           </button>
         </div>
 
-        {showStarters && !composerLocked && (
+        {showStarters && !composerLocked && !gateOpen && !configPending && (
           <div className="suggestions" role="group" aria-label={t("chat.starters.label")}>
             {(["overwhelmed", "focus", "relax"] as const).map((k) => (
               <button key={k} type="button" onClick={() => void send(t(`chat.starters.${k}`))}>
@@ -581,7 +619,22 @@ export default function Chat({
           </div>
         )}
 
-        {composerLocked ? (
+        {gateOpen ? (
+          <div className="mx-5 mb-3 flex flex-wrap items-center gap-3" data-testid="free-tier-gate">
+            <p className="text-[13px] text-[var(--ink)]">{t("chat.freeTier.gate")}</p>
+            <button
+              type="button"
+              className="outline-btn min-h-11"
+              onClick={() => {
+                writeFreeTierAck();
+                setFreeTierAck(true);
+                setTimeout(() => inputRef.current?.focus(), 0);
+              }}
+            >
+              {t("chat.freeTier.accept")}
+            </button>
+          </div>
+        ) : composerLocked ? (
           <div className="mx-5 mb-3 flex flex-wrap items-center gap-3">
             <p className="text-[13px] text-[var(--muted)]">{t("chat.crisis.paused")}</p>
             <button
@@ -598,6 +651,7 @@ export default function Chat({
         ) : (
           <form
             className="chat-input"
+            aria-busy={configPending || undefined}
             onSubmit={(e) => {
               e.preventDefault();
               void send();
@@ -623,9 +677,18 @@ export default function Chat({
               className="min-h-11 flex-1 resize-none border-0 bg-transparent py-2 text-sm outline-none"
               style={{ color: "var(--ink)" }}
             />
-            <button type="submit" aria-label={t("chat.send")} disabled={isStreaming || !text.trim()}>
+            <button
+              type="submit"
+              aria-label={t("chat.send")}
+              disabled={configPending || isStreaming || !text.trim()}
+            >
               <Icon name="send" />
             </button>
+            {configPending && (
+              <span role="status" data-testid="chat-config-pending" className="sr-only">
+                {t("chat.checkingService")}
+              </span>
+            )}
           </form>
         )}
 
